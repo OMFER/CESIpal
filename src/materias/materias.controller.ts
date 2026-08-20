@@ -1,19 +1,11 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { MateriasService } from './materias.service';
 import { CreateMateriaDto } from './dto/create-materia.dto';
 import { UpdateMateriaDto } from './dto/update-materia.dto';
 
 @Controller('materias')
 export class MateriasController {
-  constructor(private readonly materiasService: MateriasService) {}
+  constructor(private readonly materiasService: MateriasService) { }
 
   @Post()
   create(@Body() createMateriaDto: CreateMateriaDto) {

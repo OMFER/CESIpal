@@ -10,7 +10,7 @@ export class UsuariosService {
   constructor(
     @InjectModel(Usuario.name)
     private readonly usuarioModel: Model<UsuarioDocument>,
-  ) {}
+  ) { }
 
   async create(createUsuarioDto: CreateUsuarioDto): Promise<Usuario> {
     const { correo, password, ...resto } = createUsuarioDto;
