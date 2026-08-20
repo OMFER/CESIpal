@@ -12,4 +12,4 @@ import { Usuario, UsuarioSchema } from './schemas/usuario.schema';
   providers: [UsuariosService],
   exports: [UsuariosService, MongooseModule],
 })
-export class UsuariosModule {}
+export class UsuariosModule { }

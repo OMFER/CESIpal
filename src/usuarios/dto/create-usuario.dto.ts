@@ -1,11 +1,5 @@
 import { Rol } from '../schemas/usuario.schema';
-import {
-  IsEmail,
-  IsEnum,
-  IsNotEmpty,
-  IsString,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class CreateUsuarioDto {
   @IsString()

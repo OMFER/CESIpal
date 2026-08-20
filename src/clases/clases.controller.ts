@@ -1,42 +1,24 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { ClasesService } from './clases.service';
 import { CreateClaseDto } from './dto/create-clase.dto';
-import { UpdateClaseDto } from './dto/update-clase.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Rol } from '../usuarios/schemas/usuario.schema';
 
 @Controller('clases')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ClasesController {
-  constructor(private readonly clasesService: ClasesService) {}
+  constructor(private readonly clasesService: ClasesService) { }
 
   @Post()
+  @Roles(Rol.MAESTRO)
   create(@Body() createClaseDto: CreateClaseDto) {
     return this.clasesService.create(createClaseDto);
   }
 
-  @Get()
-  findAll() {
-    return this.clasesService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.clasesService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateClaseDto: UpdateClaseDto) {
-    return this.clasesService.update(+id, updateClaseDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.clasesService.remove(+id);
+  @Get('materia/:materiaId')
+  findByMateria(@Param('materiaId') materiaId: string) {
+    return this.clasesService.findByMateria(materiaId);
   }
 }

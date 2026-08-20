@@ -1,26 +1,27 @@
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { Clase, ClaseDocument } from './schemas/clase.schema';
 import { CreateClaseDto } from './dto/create-clase.dto';
-import { UpdateClaseDto } from './dto/update-clase.dto';
 
 @Injectable()
 export class ClasesService {
-  create(createClaseDto: CreateClaseDto) {
-    return 'This action adds a new clase';
+  constructor(
+    @InjectModel(Clase.name)
+    private readonly claseModel: Model<ClaseDocument>,
+  ) { }
+
+  async create(createClaseDto: CreateClaseDto): Promise<Clase> {
+    const nuevaClase = new this.claseModel({
+      ...createClaseDto,
+      materia: new Types.ObjectId(createClaseDto.materiaId),
+    });
+    return nuevaClase.save();
   }
 
-  findAll() {
-    return `This action returns all clases`;
-  }
-
-  findOne(id: number) {
-    return `This action returns a #${id} clase`;
-  }
-
-  update(id: number, updateClaseDto: UpdateClaseDto) {
-    return `This action updates a #${id} clase`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} clase`;
+  async findByMateria(materiaId: string): Promise<Clase[]> {
+    return this.claseModel
+      .find({ materia: new Types.ObjectId(materiaId) })
+      .exec();
   }
 }
