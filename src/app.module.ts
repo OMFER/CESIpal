@@ -7,13 +7,10 @@ import { MateriasModule } from './materias/materias.module';
 import { ClasesModule } from './clases/clases.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ExamenesModule } from './examenes/examenes.module';
 
 @Module({
-  imports: [
-    AuthModule,
-    UsuariosModule,
-    MateriasModule,
-    ClasesModule,
+  imports: [AuthModule, UsuariosModule, MateriasModule, ClasesModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -24,6 +21,7 @@ import { MongooseModule } from '@nestjs/mongoose';
       }),
       inject: [ConfigService],
     }),
+    ExamenesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
