@@ -1,12 +1,14 @@
 import { Usuario } from '../../usuarios/domain/usuario';
 
-// Qué alumnos cursan qué materias
+// Qué alumnos están inscritos en qué grupos
 export interface InscripcionRepository {
-  inscribir(alumnoIds: string[], materiaId: string): Promise<void>;
-  darDeBaja(alumnoId: string, materiaId: string): Promise<void>;
-  estaInscrito(alumnoId: string, materiaId: string): Promise<boolean>;
-  materiasDeAlumno(alumnoId: string): Promise<string[]>;
-  alumnosDeMateria(materiaId: string): Promise<Usuario[]>;
+  inscribir(alumnoIds: string[], grupoId: string): Promise<void>;
+  darDeBaja(alumnoId: string, grupoId: string): Promise<void>;
+  // Saca a todos los alumnos del grupo
+  vaciarGrupo(grupoId: string): Promise<void>;
+  estaInscrito(alumnoId: string, grupoId: string): Promise<boolean>;
+  gruposDeAlumno(alumnoId: string): Promise<string[]>;
+  alumnosDeGrupo(grupoId: string): Promise<Usuario[]>;
 }
 
 export const INSCRIPCION_REPOSITORY = Symbol('InscripcionRepository');

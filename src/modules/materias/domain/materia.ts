@@ -1,14 +1,10 @@
 import { DatosInvalidosError } from '../../../shared/domain/errores';
 
+// Lo permanente de una materia: se reutiliza en cada semestre a través de sus grupos
 export interface Materia {
   id: string;
   nombre: string;
   descripcion?: string;
-  grupo?: string;
-  aula?: string;
-  maestroId: string;
-  // Primer día de la semana 1 del semestre
-  fechaInicio: Date;
   totalSemanas: number;
 }
 

@@ -1,9 +1,9 @@
 import { Actor, Rol } from '../../../shared/domain/actor';
-import { Materia } from './materia';
+import { Grupo } from './grupo';
 
-// Quién puede ver una materia: el admin todas, el maestro las que imparte y el alumno las que tiene inscritas
-export function puedeVerMateria(
-  materia: Materia,
+// Un grupo lo ve el admin, su maestro y sus alumnos inscritos
+export function puedeVerGrupo(
+  grupo: Grupo,
   actor: Actor,
   alumnoInscrito: boolean,
 ): boolean {
@@ -11,16 +11,34 @@ export function puedeVerMateria(
     case Rol.ADMIN:
       return true;
     case Rol.MAESTRO:
-      return materia.maestroId === actor.id;
+      return grupo.maestroId === actor.id;
     case Rol.ALUMNO:
       return alumnoInscrito;
   }
 }
 
-// Quién puede modificar su contenido (semanas, exámenes): el admin y el maestro que la imparte
-export function puedeEditarMateria(materia: Materia, actor: Actor): boolean {
-  return (
-    actor.rol === Rol.ADMIN ||
-    (actor.rol === Rol.MAESTRO && materia.maestroId === actor.id)
-  );
+export interface ParticipacionEnMateria {
+  // El maestro imparte (o impartió) algún grupo de la materia
+  imparte: boolean;
+  // El alumno está inscrito en algún grupo de la materia
+  cursa: boolean;
+}
+
+export function puedeVerMateria(
+  actor: Actor,
+  { imparte, cursa }: ParticipacionEnMateria,
+): boolean {
+  switch (actor.rol) {
+    case Rol.ADMIN:
+      return true;
+    case Rol.MAESTRO:
+      return imparte;
+    case Rol.ALUMNO:
+      return cursa;
+  }
+}
+
+// El contenido y los exámenes los edita el admin o cualquier maestro que imparta la materia
+export function puedeEditarMateria(actor: Actor, imparte: boolean): boolean {
+  return actor.rol === Rol.ADMIN || (actor.rol === Rol.MAESTRO && imparte);
 }
