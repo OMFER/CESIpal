@@ -96,6 +96,8 @@ describe('Flujo escolar (e2e)', () => {
       })
       .expect(201);
     id.grupo = grupo.body._id;
+    // Medianoche en la zona de la escuela (America/Mexico_City = UTC-6)
+    expect(grupo.body.fechaInicio).toBe(`${haceDias(15)}T06:00:00.000Z`);
     expect(grupo.body).toMatchObject({
       semanaActual: 3,
       materia: { nombre: 'Creatividad', totalSemanas: 16 },
@@ -201,7 +203,7 @@ describe('Flujo escolar (e2e)', () => {
     expect(reposicion.body.preguntas).toEqual([]);
   });
 
-  it('responde una sola vez y ve en qué acertó y cuál era la respuesta correcta', async () => {
+  it('responde una sola vez y ve en qué acertó; la respuesta correcta espera a que cierre el examen', async () => {
     const ruta = `/grupos/${id.grupo}/examenes/${id.semanal}/intentos`;
     await api
       .post(ruta)
@@ -218,17 +220,17 @@ describe('Flujo escolar (e2e)', () => {
       totalPreguntas: 2,
       calificacion: 50,
     });
+    // Sus compañeros aún pueden responder: la clave no viaja todavía
     expect(
-      resultado.body.revision.map(
-        (p: { acierto: boolean; respuestaCorrecta: number }) => [
-          p.acierto,
-          p.respuestaCorrecta,
-        ],
-      ),
+      resultado.body.revision.map((p: object) => [
+        (p as { acierto: boolean }).acierto,
+        'respuestaCorrecta' in p,
+      ]),
     ).toEqual([
-      [true, 0],
-      [false, 1],
+      [true, false],
+      [false, false],
     ]);
+    expect(resultado.body.ventana.estado).toBe('abierta');
     await api
       .post(ruta)
       .set(como('alumno'))
@@ -241,9 +243,9 @@ describe('Flujo escolar (e2e)', () => {
       .expect(200);
     expect(revision.body.preguntas[1]).toMatchObject({
       miRespuesta: 2,
-      respuestaCorrecta: 1,
       acierto: false,
     });
+    expect(revision.body.preguntas[1]).not.toHaveProperty('respuestaCorrecta');
   });
 
   it('la reposición y el final rechazan respuestas fuera de su ventana', async () => {
@@ -318,6 +320,24 @@ describe('Flujo escolar (e2e)', () => {
         (i: { alumno: { nombre: string } }) => i.alumno.nombre,
       ),
     ).toEqual(['Luis']);
+  });
+
+  it('la maestra sabe si el examen ya tiene respuestas y no puede alterar sus calificaciones', async () => {
+    const plantilla = await api
+      .get(`/examenes/${id.semanal}`)
+      .set(como('maestra'))
+      .expect(200);
+    expect(plantilla.body.tieneRespuestas).toBe(true);
+    await api
+      .patch(`/examenes/${id.semanal}`)
+      .set(como('maestra'))
+      .send({ puntajeMaximo: 10 })
+      .expect(409);
+    await api
+      .patch(`/materias/${id.materia}`)
+      .set(como('admin'))
+      .send({ totalSemanas: 2 })
+      .expect(409);
   });
 
   it('nadie fuera del grupo ve sus datos ni edita la materia', async () => {

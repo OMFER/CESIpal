@@ -25,4 +25,13 @@ describe('validarEntorno', () => {
       'juntas',
     );
   });
+
+  it('acepta solo zonas horarias válidas', () => {
+    expect(() =>
+      validarEntorno({ ...minimo, ZONA_HORARIA: 'America/Mexico_City' }),
+    ).not.toThrow();
+    expect(() =>
+      validarEntorno({ ...minimo, ZONA_HORARIA: 'Marte/Olympus' }),
+    ).toThrow('ZONA_HORARIA');
+  });
 });

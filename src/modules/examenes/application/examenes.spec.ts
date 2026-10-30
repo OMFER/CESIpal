@@ -137,11 +137,12 @@ describe('ResponderExamen', () => {
       totalPreguntas: 2,
       calificacion: 50,
     });
+    // Mientras el examen sigue abierto para el grupo, sin la respuesta correcta
     expect(
-      revision.map((p) => [p.miRespuesta, p.respuestaCorrecta, p.acierto]),
+      revision.map((p) => [p.miRespuesta, p.acierto, p.respuestaCorrecta]),
     ).toEqual([
-      [0, 0, true],
-      [2, 1, false],
+      [0, true, undefined],
+      [2, false, undefined],
     ]);
     await expect(
       responder.ejecutar(grupo.id, examen.id, [0, 1], actores.alumno),
@@ -209,6 +210,34 @@ describe('ResponderExamen', () => {
   });
 });
 
+describe('Revisión de un examen respondido', () => {
+  it('muestra las respuestas correctas solo cuando el examen ya cerró en el grupo', async () => {
+    const { nuevo, obtener, responder, grupo, actores, reloj, hoy } =
+      await preparar();
+    const examen = await nuevo({ tipo: TipoExamen.SEMANAL, semana: 3 });
+    await responder.ejecutar(grupo.id, examen.id, [0, 2], actores.alumno);
+
+    const abierta = await obtener.ejecutar(grupo.id, examen.id, actores.alumno);
+    expect(abierta.preguntas.modo).toBe('revision');
+    const revisadas =
+      abierta.preguntas.modo === 'revision' ? abierta.preguntas.preguntas : [];
+    expect(revisadas.map((p) => [p.acierto, p.respuestaCorrecta])).toEqual([
+      [true, undefined],
+      [false, undefined],
+    ]);
+
+    reloj.fecha = new Date(hoy.getTime() + DIAS(7)); // ya cerró la semana 3
+    const cerrada = await obtener.ejecutar(grupo.id, examen.id, actores.alumno);
+    expect(cerrada.preguntas).toMatchObject({
+      modo: 'revision',
+      preguntas: [
+        { respuestaCorrecta: 0, miRespuesta: 0, acierto: true },
+        { respuestaCorrecta: 1, miRespuesta: 2, acierto: false },
+      ],
+    });
+  });
+});
+
 describe('ObtenerExamenEnGrupo', () => {
   it('el alumno ve preguntas sin respuestas mientras está abierto y la revisión después', async () => {
     const { nuevo, obtener, responder, grupo, actores } = await preparar();
@@ -260,7 +289,7 @@ describe('Listados del grupo', () => {
 });
 
 describe('Edición de exámenes', () => {
-  it('no cambia preguntas con respuestas, y no borra un semanal que tiene reposición', async () => {
+  it('no cambia preguntas ni puntaje con respuestas, y no borra un semanal que tiene reposición', async () => {
     const e = await preparar();
     const semanal = await e.nuevo({ tipo: TipoExamen.SEMANAL, semana: 3 });
     await e.nuevo({ tipo: TipoExamen.REPOSICION, semana: 3 });
@@ -288,6 +317,16 @@ describe('Edición de exámenes', () => {
     ).resolves.toMatchObject({
       diasExtra: 2,
     });
+    await expect(
+      actualizar.ejecutar(semanal.id, { puntajeMaximo: 10 }, e.actores.maestra),
+    ).rejects.toThrow('ni el puntaje máximo');
+    await expect(
+      actualizar.ejecutar(
+        semanal.id,
+        { puntajeMaximo: 100 },
+        e.actores.maestra,
+      ),
+    ).resolves.toMatchObject({ puntajeMaximo: 100 });
     await expect(
       new EliminarExamen(e.accesoMaterias, e.examenes, e.intentos).ejecutar(
         semanal.id,
