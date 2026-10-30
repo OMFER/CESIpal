@@ -33,7 +33,7 @@ import { UsuariosController } from './presentation/usuarios.controller';
     casoDeUso(CrearAdminInicial, [USUARIO_REPOSITORY, CrearUsuario]),
     AdminInicialBootstrap,
   ],
-  // El modelo se exporta para el repositorio de inscripciones del módulo de materias
+  // El modelo se exporta para el repositorio de inscripciones a grupos (módulo de materias)
   exports: [USUARIO_REPOSITORY, PASSWORD_HASHER, MongooseModule],
 })
 export class UsuariosModule {}

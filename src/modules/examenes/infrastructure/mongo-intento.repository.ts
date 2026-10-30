@@ -2,19 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, mongo, Types } from 'mongoose';
 import { ConflictoError } from '../../../shared/domain/errores';
-import {
-  aObjectId,
-  aObjectIds,
-} from '../../../shared/infrastructure/mongo/object-id';
+import { aObjectId } from '../../../shared/infrastructure/mongo/object-id';
 import { Intento } from '../domain/intento';
 import { DatosIntento, IntentoRepository } from '../domain/examen.repository';
 import { IntentoModelo } from './examen.schema';
 
 const CLAVE_DUPLICADA = 11000;
 
-type IntentoPlano = Omit<IntentoModelo, 'examen' | 'alumno'> & {
+type IntentoPlano = Omit<IntentoModelo, 'examen' | 'grupo' | 'alumno'> & {
   _id: Types.ObjectId;
   examen: Types.ObjectId;
+  grupo: Types.ObjectId;
   alumno: Types.ObjectId;
   createdAt: Date;
 };
@@ -23,6 +21,7 @@ function aIntento(doc: IntentoPlano): Intento {
   return {
     id: doc._id.toString(),
     examenId: doc.examen.toString(),
+    grupoId: doc.grupo.toString(),
     alumnoId: doc.alumno.toString(),
     respuestas: doc.respuestas,
     aciertos: doc.aciertos,
@@ -41,6 +40,7 @@ export class MongoIntentoRepository implements IntentoRepository {
 
   async crear({
     examenId,
+    grupoId,
     alumnoId,
     ...datos
   }: DatosIntento): Promise<Intento> {
@@ -48,6 +48,7 @@ export class MongoIntentoRepository implements IntentoRepository {
       const doc = await this.modelo.create({
         ...datos,
         examen: aObjectId(examenId),
+        grupo: aObjectId(grupoId),
         alumno: aObjectId(alumnoId),
       });
       return aIntento(doc.toObject<IntentoPlano>());
@@ -63,31 +64,36 @@ export class MongoIntentoRepository implements IntentoRepository {
     }
   }
 
-  async buscar(examenId: string, alumnoId: string): Promise<Intento | null> {
+  async buscar(
+    examenId: string,
+    grupoId: string,
+    alumnoId: string,
+  ): Promise<Intento | null> {
     const doc = await this.modelo
-      .findOne({ examen: aObjectId(examenId), alumno: aObjectId(alumnoId) })
+      .findOne({
+        examen: aObjectId(examenId),
+        grupo: aObjectId(grupoId),
+        alumno: aObjectId(alumnoId),
+      })
       .lean<IntentoPlano>()
       .exec();
     return doc ? aIntento(doc) : null;
   }
 
-  async listarDeAlumno(
-    alumnoId: string,
-    examenIds: string[],
-  ): Promise<Intento[]> {
+  async listarDeAlumno(grupoId: string, alumnoId: string): Promise<Intento[]> {
     const docs = await this.modelo
-      .find({
-        alumno: aObjectId(alumnoId),
-        examen: { $in: aObjectIds(examenIds) },
-      })
+      .find({ grupo: aObjectId(grupoId), alumno: aObjectId(alumnoId) })
       .lean<IntentoPlano[]>()
       .exec();
     return docs.map(aIntento);
   }
 
-  async listarPorExamen(examenId: string): Promise<Intento[]> {
+  async listarDeGrupo(grupoId: string, examenId?: string): Promise<Intento[]> {
     const docs = await this.modelo
-      .find({ examen: aObjectId(examenId) })
+      .find({
+        grupo: aObjectId(grupoId),
+        ...(examenId && { examen: aObjectId(examenId) }),
+      })
       .sort({ createdAt: 1 })
       .lean<IntentoPlano[]>()
       .exec();
@@ -100,5 +106,9 @@ export class MongoIntentoRepository implements IntentoRepository {
 
   async eliminarPorExamen(examenId: string): Promise<void> {
     await this.modelo.deleteMany({ examen: aObjectId(examenId) });
+  }
+
+  async eliminarDeGrupo(grupoId: string): Promise<void> {
+    await this.modelo.deleteMany({ grupo: aObjectId(grupoId) });
   }
 }

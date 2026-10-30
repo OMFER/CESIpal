@@ -7,7 +7,7 @@ export function presentarUsuario(usuario: Usuario) {
     nombre: usuario.nombre,
     correo: usuario.correo,
     rol: usuario.rol,
-    materias: usuario.materiaIds,
+    grupos: usuario.grupoIds,
   };
 }
 

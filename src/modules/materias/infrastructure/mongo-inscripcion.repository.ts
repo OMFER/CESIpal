@@ -14,7 +14,7 @@ import {
 } from '../../usuarios/infrastructure/usuario.mapper';
 import { InscripcionRepository } from '../domain/inscripcion.repository';
 
-// Las inscripciones se guardan en el arreglo `materias` de cada alumno
+// Las inscripciones se guardan en el arreglo `grupos` de cada alumno
 @Injectable()
 export class MongoInscripcionRepository implements InscripcionRepository {
   constructor(
@@ -22,40 +22,47 @@ export class MongoInscripcionRepository implements InscripcionRepository {
     private readonly usuarios: Model<UsuarioModelo>,
   ) {}
 
-  async inscribir(alumnoIds: string[], materiaId: string): Promise<void> {
+  async inscribir(alumnoIds: string[], grupoId: string): Promise<void> {
     await this.usuarios.updateMany(
       { _id: { $in: aObjectIds(alumnoIds) }, rol: Rol.ALUMNO },
-      { $addToSet: { materias: aObjectId(materiaId) } },
+      { $addToSet: { grupos: aObjectId(grupoId) } },
     );
   }
 
-  async darDeBaja(alumnoId: string, materiaId: string): Promise<void> {
+  async darDeBaja(alumnoId: string, grupoId: string): Promise<void> {
     await this.usuarios.updateOne(
       { _id: aObjectId(alumnoId) },
-      { $pull: { materias: aObjectId(materiaId) } },
+      { $pull: { grupos: aObjectId(grupoId) } },
     );
   }
 
-  async estaInscrito(alumnoId: string, materiaId: string): Promise<boolean> {
+  async vaciarGrupo(grupoId: string): Promise<void> {
+    await this.usuarios.updateMany(
+      { grupos: aObjectId(grupoId) },
+      { $pull: { grupos: aObjectId(grupoId) } },
+    );
+  }
+
+  async estaInscrito(alumnoId: string, grupoId: string): Promise<boolean> {
     const existe = await this.usuarios.exists({
       _id: aObjectId(alumnoId),
-      materias: aObjectId(materiaId),
+      grupos: aObjectId(grupoId),
     });
     return existe !== null;
   }
 
-  async materiasDeAlumno(alumnoId: string): Promise<string[]> {
+  async gruposDeAlumno(alumnoId: string): Promise<string[]> {
     const alumno = await this.usuarios
       .findById(alumnoId)
-      .select('materias')
+      .select('grupos')
       .lean<UsuarioPlano>()
       .exec();
-    return (alumno?.materias ?? []).map((m) => m.toString());
+    return (alumno?.grupos ?? []).map((g) => g.toString());
   }
 
-  async alumnosDeMateria(materiaId: string): Promise<Usuario[]> {
+  async alumnosDeGrupo(grupoId: string): Promise<Usuario[]> {
     const docs = await this.usuarios
-      .find({ rol: Rol.ALUMNO, materias: aObjectId(materiaId) })
+      .find({ rol: Rol.ALUMNO, grupos: aObjectId(grupoId) })
       .select('-password')
       .sort({ nombre: 1 })
       .lean<UsuarioPlano[]>()

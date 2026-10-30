@@ -68,4 +68,14 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Las respuestas HTTP de supertest llegan como `any`: en pruebas e2e se revisan con expect
+    files: ['test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+    },
+  },
 );

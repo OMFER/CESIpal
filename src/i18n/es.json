@@ -1,0 +1,67 @@
+{
+  "swagger": {
+    "global": {
+      "titulo": "API Plataforma Escolar",
+      "descripcion": "Documentación de los endpoints para la plataforma educativa. Inicia sesión en POST /auth/login y usa el token en el botón Authorize.",
+      "version": "2.0"
+    },
+    "auth": {
+      "etiqueta": "Autenticación",
+      "login_summary": "Iniciar sesión en la plataforma",
+      "login_description": "Recibe correo y contraseña, y devuelve un token JWT junto con los datos del usuario."
+    },
+    "usuarios": {
+      "etiqueta": "Usuarios",
+      "me_summary": "Obtener el usuario de la sesión actual",
+      "crear_summary": "Crear una cuenta (solo admin; no hay registro público)",
+      "listar_summary": "Listar usuarios, opcionalmente por rol (solo admin)",
+      "obtener_summary": "Obtener un usuario (solo admin)",
+      "actualizar_summary": "Actualizar un usuario (solo admin)"
+    },
+    "materias": {
+      "etiqueta": "Materias",
+      "crear_summary": "Crear una materia permanente (solo admin)",
+      "listar_summary": "Listar todas las materias (solo admin)",
+      "obtener_summary": "Obtener una materia",
+      "actualizar_summary": "Actualizar una materia (solo admin)",
+      "eliminar_summary": "Eliminar una materia sin grupos, con su contenido y exámenes (solo admin)"
+    },
+    "grupos": {
+      "etiqueta": "Grupos",
+      "crear_summary": "Abrir un grupo de una materia para un semestre (solo admin)",
+      "listar_summary": "Listar todos los grupos (solo admin)",
+      "mios_summary": "Obtener los grupos del usuario actual con su calendario semanal",
+      "obtener_summary": "Obtener un grupo con su calendario semanal",
+      "actualizar_summary": "Actualizar un grupo (solo admin)",
+      "eliminar_summary": "Eliminar un grupo con sus inscripciones y calificaciones; la materia se conserva (solo admin)",
+      "alumnos_summary": "Listar los alumnos inscritos en el grupo",
+      "inscribir_summary": "Inscribir alumnos en el grupo (solo admin)",
+      "baja_summary": "Dar de baja a un alumno del grupo (solo admin)"
+    },
+    "clases": {
+      "etiqueta": "Contenido semanal",
+      "crear_summary": "Publicar el contenido de una semana de la materia",
+      "listar_summary": "Listar el contenido de todas las semanas de la materia",
+      "semana_summary": "Obtener el contenido de una semana (infografía)",
+      "actualizar_summary": "Actualizar el contenido de una semana",
+      "eliminar_summary": "Eliminar el contenido de una semana"
+    },
+    "examenes": {
+      "etiqueta": "Exámenes de la materia",
+      "crear_summary": "Crear un examen Semanal, de Reposición o Final",
+      "listar_summary": "Listar los exámenes de la materia con sus respuestas",
+      "obtener_summary": "Obtener un examen con sus respuestas",
+      "actualizar_summary": "Actualizar un examen (las preguntas no cambian si ya hay respuestas)",
+      "eliminar_summary": "Eliminar un examen y sus resultados"
+    },
+    "examenes_grupo": {
+      "etiqueta": "Exámenes en el grupo",
+      "listar_summary": "Listar los exámenes del grupo con su ventana de apertura y el intento del alumno",
+      "semana_summary": "Obtener el examen semanal y la reposición de una semana",
+      "obtener_summary": "Obtener un examen para responderlo o revisarlo",
+      "responder_summary": "Responder un examen (una sola vez); devuelve la calificación y la revisión",
+      "intentos_summary": "Listar los resultados del examen en el grupo",
+      "calificaciones_summary": "Calificaciones por semana (la mejor entre semanal y reposición) y final"
+    }
+  }
+}

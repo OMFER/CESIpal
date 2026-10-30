@@ -1,8 +1,57 @@
 import { presentarUsuarioResumen } from '../../usuarios/presentation/usuario.presenter';
-import { Examen } from '../domain/examen';
+import { Examen, Pregunta } from '../domain/examen';
 import { Intento } from '../domain/intento';
-import { VistaExamen } from '../application/consultar-examenes';
-import { IntentoConAlumno } from '../application/responder-examen';
+import { Nota } from '../domain/boleta';
+import { PreguntaRevisada } from '../domain/calificar';
+import {
+  ExamenEnGrupo,
+  ExamenesDeSemana,
+  ResultadoDeIntento,
+  ResumenExamen,
+} from '../application/examenes-de-grupo';
+import {
+  BoletaDeAlumno,
+  IntentoConAlumno,
+} from '../application/resultados-de-grupo';
+
+const presentarPregunta = ({
+  id,
+  enunciado,
+  opciones,
+  respuestaCorrecta,
+}: Pregunta) => ({ _id: id, enunciado, opciones, respuestaCorrecta });
+
+const presentarPreguntaSinRespuesta = ({
+  id,
+  enunciado,
+  opciones,
+}: Pregunta) => ({
+  _id: id,
+  enunciado,
+  opciones,
+});
+
+const presentarRevision = (revisadas: PreguntaRevisada[]) =>
+  revisadas.map((p) => ({
+    ...presentarPregunta(p),
+    miRespuesta: p.miRespuesta,
+    acierto: p.acierto,
+  }));
+
+// Plantilla completa para quien edita la materia
+export function presentarExamen(examen: Examen) {
+  return {
+    _id: examen.id,
+    materia: examen.materiaId,
+    tipo: examen.tipo,
+    semana: examen.semana,
+    titulo: examen.titulo,
+    descripcion: examen.descripcion,
+    puntajeMaximo: examen.puntajeMaximo,
+    diasExtra: examen.diasExtra,
+    preguntas: examen.preguntas.map(presentarPregunta),
+  };
+}
 
 export function presentarResumenIntento(intento: Intento | null) {
   if (!intento) return null;
@@ -10,46 +59,57 @@ export function presentarResumenIntento(intento: Intento | null) {
   return { aciertos, totalPreguntas, calificacion, fecha };
 }
 
-function datosGenerales(examen: Examen) {
+export function presentarResumenExamen({
+  examen,
+  ventana,
+  miIntento,
+}: ResumenExamen) {
   return {
     _id: examen.id,
-    materia: examen.materiaId,
+    tipo: examen.tipo,
     semana: examen.semana,
     titulo: examen.titulo,
     descripcion: examen.descripcion,
-    tipo: examen.tipo,
-    fechaLimite: examen.fechaLimite,
     puntajeMaximo: examen.puntajeMaximo,
+    totalPreguntas: examen.preguntas.length,
+    ventana,
+    ...(miIntento !== undefined && {
+      miIntento: presentarResumenIntento(miIntento),
+    }),
   };
 }
 
-function conIntento(vista: VistaExamen) {
-  return vista.miIntento === undefined
-    ? {}
-    : { miIntento: presentarResumenIntento(vista.miIntento) };
-}
-
-export function presentarExamen(vista: VistaExamen) {
-  const { examen, conRespuestas } = vista;
+export function presentarExamenesDeSemana({
+  semanal,
+  reposicion,
+}: ExamenesDeSemana) {
   return {
-    ...datosGenerales(examen),
-    preguntas: examen.preguntas.map(
-      ({ id, enunciado, opciones, respuestaCorrecta }) =>
-        conRespuestas
-          ? { _id: id, enunciado, opciones, respuestaCorrecta }
-          : { _id: id, enunciado, opciones },
-    ),
-    ...conIntento(vista),
+    semanal: semanal && presentarResumenExamen(semanal),
+    reposicion: reposicion && presentarResumenExamen(reposicion),
   };
 }
 
-// En la lista, el alumno no recibe las preguntas: solo cuántas son y su resultado
-export function presentarExamenEnLista(vista: VistaExamen) {
-  if (vista.conRespuestas) return presentarExamen(vista);
+export function presentarExamenEnGrupo(vista: ExamenEnGrupo) {
+  const { examen } = vista;
+  const visibles = vista.preguntas;
+  const preguntas =
+    visibles.modo === 'conRespuestas'
+      ? examen.preguntas.map(presentarPregunta)
+      : visibles.modo === 'sinRespuestas'
+        ? examen.preguntas.map(presentarPreguntaSinRespuesta)
+        : visibles.modo === 'revision'
+          ? presentarRevision(visibles.preguntas)
+          : [];
+  return { ...presentarResumenExamen(vista), preguntas };
+}
+
+export function presentarResultadoDeIntento({
+  intento,
+  revision,
+}: ResultadoDeIntento) {
   return {
-    ...datosGenerales(vista.examen),
-    totalPreguntas: vista.examen.preguntas.length,
-    ...conIntento(vista),
+    ...presentarResumenIntento(intento),
+    revision: presentarRevision(revision),
   };
 }
 
@@ -65,5 +125,24 @@ export function presentarIntento({ intento, alumno }: IntentoConAlumno) {
     totalPreguntas: intento.totalPreguntas,
     calificacion: intento.calificacion,
     createdAt: intento.fecha,
+  };
+}
+
+const presentarNota = (nota: Nota | null) =>
+  nota && {
+    calificacion: nota.calificacion,
+    puntajeMaximo: nota.puntajeMaximo,
+  };
+
+export function presentarBoleta({ alumno, semanas, final }: BoletaDeAlumno) {
+  return {
+    alumno: presentarUsuarioResumen(alumno),
+    semanas: semanas.map((s) => ({
+      semana: s.semana,
+      semanal: presentarNota(s.semanal),
+      reposicion: presentarNota(s.reposicion),
+      mejor: presentarNota(s.mejor),
+    })),
+    final: presentarNota(final),
   };
 }

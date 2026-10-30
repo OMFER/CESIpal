@@ -15,12 +15,12 @@ export class UsuarioModelo {
   @Prop({ required: true })
   password!: string;
 
-  @Prop({ required: true, enum: Rol, default: Rol.ALUMNO })
+  @Prop({ type: String, required: true, enum: Rol, default: Rol.ALUMNO })
   rol!: Rol;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'MateriaModelo' }], default: [] })
-  materias!: Types.ObjectId[];
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'GrupoModelo' }], default: [] })
+  grupos!: Types.ObjectId[];
 }
 
 export const UsuarioSchema = SchemaFactory.createForClass(UsuarioModelo);
-UsuarioSchema.index({ rol: 1, materias: 1 });
+UsuarioSchema.index({ rol: 1, grupos: 1 });

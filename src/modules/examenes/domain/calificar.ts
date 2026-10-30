@@ -21,3 +21,20 @@ export function calificarExamen(
       : Math.round((aciertos / totalPreguntas) * puntajeMaximo * 100) / 100;
   return { aciertos, totalPreguntas, calificacion };
 }
+
+export interface PreguntaRevisada extends Pregunta {
+  miRespuesta: number;
+  acierto: boolean;
+}
+
+// Lo que ve el alumno después de responder: qué eligió, si acertó y cuál era la correcta
+export function revisarRespuestas(
+  preguntas: Pregunta[],
+  respuestas: number[],
+): PreguntaRevisada[] {
+  return preguntas.map((pregunta, i) => ({
+    ...pregunta,
+    miRespuesta: respuestas[i],
+    acierto: respuestas[i] === pregunta.respuestaCorrecta,
+  }));
+}

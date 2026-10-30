@@ -83,4 +83,8 @@ export class MongoClaseRepository implements ClaseRepository {
       .exec();
     return docs.map(aClase);
   }
+
+  async eliminarDeMateria(materiaId: string): Promise<void> {
+    await this.modelo.deleteMany({ materia: aObjectId(materiaId) });
+  }
 }

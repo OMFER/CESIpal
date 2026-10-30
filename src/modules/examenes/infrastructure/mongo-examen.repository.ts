@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { aObjectId } from '../../../shared/infrastructure/mongo/object-id';
-import { Examen } from '../domain/examen';
+import { Examen, TipoExamen } from '../domain/examen';
 import {
   CambiosExamen,
   DatosExamen,
@@ -20,12 +20,12 @@ function aExamen(doc: ExamenPlano): Examen {
   return {
     id: doc._id.toString(),
     materiaId: doc.materia.toString(),
+    tipo: doc.tipo,
     semana: doc.semana,
     titulo: doc.titulo,
     descripcion: doc.descripcion,
-    tipo: doc.tipo,
-    fechaLimite: doc.fechaLimite,
     puntajeMaximo: doc.puntajeMaximo,
+    diasExtra: doc.diasExtra ?? 0,
     preguntas: doc.preguntas.map(
       ({ _id, enunciado, opciones, respuestaCorrecta }) => ({
         id: _id.toString(),
@@ -86,12 +86,17 @@ export class MongoExamenRepository implements ExamenRepository {
     return doc ? aExamen(doc) : null;
   }
 
-  async buscarPorSemana(
+  async buscarEnMateria(
     materiaId: string,
-    semana: number,
+    tipo: TipoExamen,
+    semana?: number,
   ): Promise<Examen | null> {
     const doc = await this.modelo
-      .findOne({ materia: aObjectId(materiaId), semana })
+      .findOne({
+        materia: aObjectId(materiaId),
+        tipo,
+        semana: semana ?? { $exists: false },
+      })
       .lean<ExamenPlano>()
       .exec();
     return doc ? aExamen(doc) : null;
@@ -100,9 +105,13 @@ export class MongoExamenRepository implements ExamenRepository {
   async listarPorMateria(materiaId: string): Promise<Examen[]> {
     const docs = await this.modelo
       .find({ materia: aObjectId(materiaId) })
-      .sort({ semana: 1, createdAt: 1 })
+      .sort({ semana: 1, tipo: -1 })
       .lean<ExamenPlano[]>()
       .exec();
     return docs.map(aExamen);
+  }
+
+  async eliminarDeMateria(materiaId: string): Promise<void> {
+    await this.modelo.deleteMany({ materia: aObjectId(materiaId) });
   }
 }

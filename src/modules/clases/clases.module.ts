@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { casoDeUso } from '../../shared/infrastructure/caso-de-uso.provider';
+import { manejadorDeEventos } from '../../shared/infrastructure/manejador-de-eventos.provider';
+import { SUSCRIPTOR_EVENTOS } from '../../shared/domain/eventos';
+import { BorrarContenidoAlEliminarMateria } from './application/al-eliminar-materia';
 import { MateriasModule } from '../materias/materias.module';
-import { AccesoMaterias } from '../materias/application/acceso-materias';
+import { AccesoMaterias } from '../materias/application/acceso';
 import { CLASE_REPOSITORY } from './domain/clase.repository';
 import {
   ActualizarClase,
@@ -32,6 +35,10 @@ const DEPENDENCIAS = [AccesoMaterias, CLASE_REPOSITORY];
     casoDeUso(EliminarClase, DEPENDENCIAS),
     casoDeUso(ListarClasesDeMateria, DEPENDENCIAS),
     casoDeUso(ObtenerClaseDeSemana, DEPENDENCIAS),
+    manejadorDeEventos(BorrarContenidoAlEliminarMateria, [
+      SUSCRIPTOR_EVENTOS,
+      CLASE_REPOSITORY,
+    ]),
   ],
 })
 export class ClasesModule {}

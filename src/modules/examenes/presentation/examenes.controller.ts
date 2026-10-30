@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   UseGuards,
@@ -23,78 +22,47 @@ import {
   ActualizarExamen,
   CrearExamen,
   EliminarExamen,
-} from '../application/gestionar-examenes';
-import {
   ListarExamenesDeMateria,
-  ObtenerExamen,
-  ObtenerExamenDeSemana,
-} from '../application/consultar-examenes';
-import {
-  ListarIntentos,
-  ResponderExamen,
-} from '../application/responder-examen';
-import {
-  ActualizarExamenDto,
-  CrearExamenDto,
-  ResponderExamenDto,
-} from './examen.dto';
-import {
-  presentarExamen,
-  presentarExamenEnLista,
-  presentarIntento,
-  presentarResumenIntento,
-} from './examen.presenter';
+  ObtenerExamenDeMateria,
+} from '../application/gestionar-examenes';
+import { ActualizarExamenDto, CrearExamenDto } from './examen.dto';
+import { presentarExamen } from './examen.presenter';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import * as i18n from '../../../i18n/es.json';
 
-const aFecha = <T extends { fechaLimite?: string }>({
-  fechaLimite,
-  ...resto
-}: T) =>
-  fechaLimite === undefined
-    ? resto
-    : { ...resto, fechaLimite: new Date(fechaLimite) };
-
+// Exámenes como plantilla de la materia: solo para quien la edita
+@ApiTags(i18n.swagger.examenes.etiqueta)
+@ApiBearerAuth()
 @Controller('examenes')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Rol.MAESTRO, Rol.ADMIN)
 export class ExamenesController {
   constructor(
     private readonly crearExamen: CrearExamen,
     private readonly actualizarExamen: ActualizarExamen,
     private readonly eliminarExamen: EliminarExamen,
-    private readonly obtenerExamen: ObtenerExamen,
-    private readonly obtenerExamenDeSemana: ObtenerExamenDeSemana,
     private readonly listarExamenes: ListarExamenesDeMateria,
-    private readonly responderExamen: ResponderExamen,
-    private readonly listarIntentos: ListarIntentos,
+    private readonly obtenerExamen: ObtenerExamenDeMateria,
   ) {}
 
+  @ApiOperation({ summary: i18n.swagger.examenes.crear_summary })
   @Post()
-  @Roles(Rol.MAESTRO, Rol.ADMIN)
   async crear(@Body() dto: CrearExamenDto, @ActorActual() actor: Actor) {
-    const examen = await this.crearExamen.ejecutar(aFecha(dto), actor);
-    return presentarExamen({ examen, conRespuestas: true });
+    return presentarExamen(await this.crearExamen.ejecutar(dto, actor));
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes.listar_summary })
   @Get('materia/:materiaId')
   async listar(
     @Param('materiaId', ParseObjectIdPipe) materiaId: string,
     @ActorActual() actor: Actor,
   ) {
     return (await this.listarExamenes.ejecutar(materiaId, actor)).map(
-      presentarExamenEnLista,
+      presentarExamen,
     );
   }
 
-  @Get('materia/:materiaId/semana/:semana')
-  async porSemana(
-    @Param('materiaId', ParseObjectIdPipe) materiaId: string,
-    @Param('semana', ParseIntPipe) semana: number,
-    @ActorActual() actor: Actor,
-  ) {
-    return presentarExamen(
-      await this.obtenerExamenDeSemana.ejecutar(materiaId, semana, actor),
-    );
-  }
-
+  @ApiOperation({ summary: i18n.swagger.examenes.obtener_summary })
   @Get(':id')
   async obtener(
     @Param('id', ParseObjectIdPipe) id: string,
@@ -103,46 +71,25 @@ export class ExamenesController {
     return presentarExamen(await this.obtenerExamen.ejecutar(id, actor));
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes.actualizar_summary })
   @Patch(':id')
-  @Roles(Rol.MAESTRO, Rol.ADMIN)
   async actualizar(
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: ActualizarExamenDto,
     @ActorActual() actor: Actor,
   ) {
-    const examen = await this.actualizarExamen.ejecutar(id, aFecha(dto), actor);
-    return presentarExamen({ examen, conRespuestas: true });
+    return presentarExamen(
+      await this.actualizarExamen.ejecutar(id, dto, actor),
+    );
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes.eliminar_summary })
   @Delete(':id')
-  @Roles(Rol.MAESTRO, Rol.ADMIN)
   @HttpCode(204)
   eliminar(
     @Param('id', ParseObjectIdPipe) id: string,
     @ActorActual() actor: Actor,
   ) {
     return this.eliminarExamen.ejecutar(id, actor);
-  }
-
-  @Post(':id/intentos')
-  @Roles(Rol.ALUMNO)
-  async responder(
-    @Param('id', ParseObjectIdPipe) id: string,
-    @Body() dto: ResponderExamenDto,
-    @ActorActual() actor: Actor,
-  ) {
-    return presentarResumenIntento(
-      await this.responderExamen.ejecutar(id, dto.respuestas, actor),
-    );
-  }
-
-  @Get(':id/intentos')
-  async intentos(
-    @Param('id', ParseObjectIdPipe) id: string,
-    @ActorActual() actor: Actor,
-  ) {
-    return (await this.listarIntentos.ejecutar(id, actor)).map(
-      presentarIntento,
-    );
   }
 }

@@ -1,8 +1,16 @@
 import { Rol } from '../shared/domain/actor';
-import { AccesoMaterias } from '../modules/materias/application/acceso-materias';
+import { BusDeEventosEnMemoria } from '../shared/infrastructure/bus-de-eventos';
+import {
+  AccesoGrupos,
+  AccesoMaterias,
+} from '../modules/materias/application/acceso';
+import { LimpiezaDeExamenes } from '../modules/examenes/application/limpieza';
+import { BorrarContenidoAlEliminarMateria } from '../modules/clases/application/al-eliminar-materia';
 import {
   actorDe,
+  ClasesEnMemoria,
   ExamenesEnMemoria,
+  GruposEnMemoria,
   InscripcionesEnMemoria,
   IntentosEnMemoria,
   MateriasEnMemoria,
@@ -12,16 +20,25 @@ import {
 
 const DIA = 24 * 60 * 60 * 1000;
 
-// Una materia de 16 semanas que empezó hace 15 días (va en la semana 3), su maestra y dos alumnos
+/**
+ * Una materia de 16 semanas con un grupo que empezó hace 15 días (va en la semana 3),
+ * su maestra y dos alumnos: uno inscrito y otro no. "Hoy" es 2026-10-30 12:00 UTC.
+ */
 export async function crearEscenario() {
   const hoy = new Date('2026-10-30T12:00:00Z');
   const reloj = new RelojFijo(hoy);
+  const eventos = new BusDeEventosEnMemoria();
   const usuarios = new UsuariosEnMemoria();
   const materias = new MateriasEnMemoria();
+  const grupos = new GruposEnMemoria();
   const inscripciones = new InscripcionesEnMemoria(usuarios);
+  const clases = new ClasesEnMemoria();
   const examenes = new ExamenesEnMemoria();
   const intentos = new IntentosEnMemoria(reloj);
-  const acceso = new AccesoMaterias(materias, inscripciones);
+  const accesoMaterias = new AccesoMaterias(materias, grupos, inscripciones);
+  const accesoGrupos = new AccesoGrupos(grupos, materias, inscripciones);
+  new LimpiezaDeExamenes(eventos, examenes, intentos).registrar();
+  new BorrarContenidoAlEliminarMateria(eventos, clases).registrar();
 
   const nuevo = (nombre: string, rol: Rol) =>
     usuarios.crear({
@@ -38,22 +55,32 @@ export async function crearEscenario() {
 
   const materia = await materias.crear({
     nombre: 'Creatividad',
-    maestroId: maestra.id,
-    fechaInicio: new Date(hoy.getTime() - 15 * DIA),
     totalSemanas: 16,
   });
-  await inscripciones.inscribir([alumno.id], materia.id);
+  const grupo = await grupos.crear({
+    materiaId: materia.id,
+    maestroId: maestra.id,
+    nombre: 'Grupo 05',
+    periodo: '2026-B',
+    fechaInicio: new Date(hoy.getTime() - 15 * DIA),
+  });
+  await inscripciones.inscribir([alumno.id], grupo.id);
 
   return {
     hoy,
     reloj,
+    eventos,
     usuarios,
     materias,
+    grupos,
     inscripciones,
+    clases,
     examenes,
     intentos,
-    acceso,
+    accesoMaterias,
+    accesoGrupos,
     materia,
+    grupo,
     actores: {
       admin: actorDe(admin),
       maestra: actorDe(maestra),
@@ -76,3 +103,5 @@ export const preguntasDeEjemplo = () => [
     respuestaCorrecta: 1,
   },
 ];
+
+export const DIAS = (n: number) => n * DIA;

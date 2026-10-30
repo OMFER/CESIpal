@@ -28,6 +28,8 @@ import {
 } from '../application/gestionar-clases';
 import { ActualizarClaseDto, CrearClaseDto } from './clase.dto';
 import { presentarClase } from './clase.presenter';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import * as i18n from '../../../i18n/es.json';
 
 const aFecha = <T extends { fechaEnVivo?: string }>({
   fechaEnVivo,
@@ -37,6 +39,8 @@ const aFecha = <T extends { fechaEnVivo?: string }>({
     ? resto
     : { ...resto, fechaEnVivo: new Date(fechaEnVivo) };
 
+@ApiTags(i18n.swagger.clases.etiqueta)
+@ApiBearerAuth()
 @Controller('clases')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ClasesController {
@@ -48,12 +52,14 @@ export class ClasesController {
     private readonly obtenerClaseDeSemana: ObtenerClaseDeSemana,
   ) {}
 
+  @ApiOperation({ summary: i18n.swagger.clases.crear_summary })
   @Post()
   @Roles(Rol.MAESTRO, Rol.ADMIN)
   async crear(@Body() dto: CrearClaseDto, @ActorActual() actor: Actor) {
     return presentarClase(await this.crearClase.ejecutar(aFecha(dto), actor));
   }
 
+  @ApiOperation({ summary: i18n.swagger.clases.listar_summary })
   @Get('materia/:materiaId')
   async listar(
     @Param('materiaId', ParseObjectIdPipe) materiaId: string,
@@ -64,6 +70,7 @@ export class ClasesController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.clases.semana_summary })
   @Get('materia/:materiaId/semana/:semana')
   async porSemana(
     @Param('materiaId', ParseObjectIdPipe) materiaId: string,
@@ -75,6 +82,7 @@ export class ClasesController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.clases.actualizar_summary })
   @Patch(':id')
   @Roles(Rol.MAESTRO, Rol.ADMIN)
   async actualizar(
@@ -87,6 +95,7 @@ export class ClasesController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.clases.eliminar_summary })
   @Delete(':id')
   @Roles(Rol.MAESTRO, Rol.ADMIN)
   @HttpCode(204)

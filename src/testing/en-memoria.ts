@@ -9,12 +9,24 @@ import {
 } from '../modules/usuarios/domain/usuario.repository';
 import { PasswordHasher } from '../modules/usuarios/domain/password-hasher';
 import { Materia } from '../modules/materias/domain/materia';
+import { Grupo } from '../modules/materias/domain/grupo';
 import {
   DatosMateria,
   MateriaRepository,
 } from '../modules/materias/domain/materia.repository';
+import {
+  CambiosGrupo,
+  DatosGrupo,
+  GrupoRepository,
+} from '../modules/materias/domain/grupo.repository';
 import { InscripcionRepository } from '../modules/materias/domain/inscripcion.repository';
-import { Examen } from '../modules/examenes/domain/examen';
+import { Clase } from '../modules/clases/domain/clase';
+import {
+  CambiosClase,
+  ClaseRepository,
+  DatosClase,
+} from '../modules/clases/domain/clase.repository';
+import { Examen, TipoExamen } from '../modules/examenes/domain/examen';
 import { Intento } from '../modules/examenes/domain/intento';
 import {
   CambiosExamen,
@@ -43,172 +55,283 @@ export class HasherFalso implements PasswordHasher {
   }
 }
 
+// Repositorio genérico por id: la base de los demás
+class Tabla<T extends { id: string }> {
+  readonly registros = new Map<string, T>();
+
+  insertar(datos: Omit<T, 'id'>): T {
+    const registro = { ...datos, id: nuevoId() } as T;
+    this.registros.set(registro.id, registro);
+    return registro;
+  }
+  modificar(id: string, cambios: Partial<T>): T | null {
+    const actual = this.registros.get(id);
+    if (!actual) return null;
+    const registro = { ...actual, ...cambios };
+    this.registros.set(id, registro);
+    return registro;
+  }
+  todos(): T[] {
+    return [...this.registros.values()];
+  }
+  porIds(ids: string[]): T[] {
+    return ids
+      .map((id) => this.registros.get(id))
+      .filter((r): r is T => r !== undefined);
+  }
+}
+
 export class UsuariosEnMemoria implements UsuarioRepository {
-  readonly registros = new Map<string, Usuario & { passwordHash: string }>();
+  readonly tabla = new Tabla<Usuario & { passwordHash: string }>();
 
   crear(datos: DatosUsuario): Promise<Usuario> {
-    const id = nuevoId();
-    this.registros.set(id, { ...datos, id, materiaIds: [] });
-    return Promise.resolve(this.publico(id)!);
+    const r = this.tabla.insertar({ ...datos, grupoIds: [] });
+    return Promise.resolve(this.publico(r));
   }
   actualizar(
     id: string,
     cambios: Partial<DatosUsuario>,
   ): Promise<Usuario | null> {
-    const actual = this.registros.get(id);
-    if (actual) this.registros.set(id, { ...actual, ...cambios });
-    return Promise.resolve(this.publico(id));
+    const r = this.tabla.modificar(id, cambios);
+    return Promise.resolve(r && this.publico(r));
   }
   buscarPorId(id: string): Promise<Usuario | null> {
-    return Promise.resolve(this.publico(id));
+    const r = this.tabla.registros.get(id);
+    return Promise.resolve(r ? this.publico(r) : null);
   }
   buscarPorIds(ids: string[]): Promise<Usuario[]> {
-    return Promise.resolve(
-      ids.map((id) => this.publico(id)).filter((u): u is Usuario => u !== null),
-    );
+    return Promise.resolve(this.tabla.porIds(ids).map((r) => this.publico(r)));
   }
   buscarCredenciales(correo: string): Promise<CredencialesUsuario | null> {
-    const r = [...this.registros.values()].find((u) => u.correo === correo);
+    const r = this.tabla.todos().find((u) => u.correo === correo);
     return Promise.resolve(
-      r ? { usuario: this.publico(r.id)!, passwordHash: r.passwordHash } : null,
+      r ? { usuario: this.publico(r), passwordHash: r.passwordHash } : null,
     );
   }
   existeCorreo(correo: string, excluirId?: string): Promise<boolean> {
     return Promise.resolve(
-      [...this.registros.values()].some(
-        (u) => u.correo === correo && u.id !== excluirId,
-      ),
+      this.tabla.todos().some((u) => u.correo === correo && u.id !== excluirId),
     );
   }
   existeConRol(rol: Rol): Promise<boolean> {
-    return Promise.resolve(
-      [...this.registros.values()].some((u) => u.rol === rol),
-    );
+    return Promise.resolve(this.tabla.todos().some((u) => u.rol === rol));
   }
   listar(rol?: Rol): Promise<Usuario[]> {
-    return this.buscarPorIds(
-      [...this.registros.values()]
+    return Promise.resolve(
+      this.tabla
+        .todos()
         .filter((u) => !rol || u.rol === rol)
-        .map((u) => u.id),
+        .map((r) => this.publico(r)),
     );
   }
-  private publico(id: string): Usuario | null {
-    const r = this.registros.get(id);
-    if (!r) return null;
+  publico(r: Usuario & { passwordHash: string }): Usuario {
     return {
       id: r.id,
       nombre: r.nombre,
       correo: r.correo,
       rol: r.rol,
-      materiaIds: r.materiaIds,
+      grupoIds: r.grupoIds,
     };
   }
 }
 
 export class MateriasEnMemoria implements MateriaRepository {
-  readonly registros = new Map<string, Materia>();
+  readonly tabla = new Tabla<Materia>();
 
   crear(datos: DatosMateria): Promise<Materia> {
-    const materia = { ...datos, id: nuevoId() };
-    this.registros.set(materia.id, materia);
-    return Promise.resolve(materia);
+    return Promise.resolve(this.tabla.insertar(datos));
   }
   actualizar(
     id: string,
     cambios: Partial<DatosMateria>,
   ): Promise<Materia | null> {
-    const actual = this.registros.get(id);
-    if (!actual) return Promise.resolve(null);
-    const materia = { ...actual, ...cambios };
-    this.registros.set(id, materia);
-    return Promise.resolve(materia);
+    return Promise.resolve(this.tabla.modificar(id, cambios));
   }
-  eliminar(id: string): Promise<boolean> {
-    return Promise.resolve(this.registros.delete(id));
+  eliminar(id: string): Promise<void> {
+    this.tabla.registros.delete(id);
+    return Promise.resolve();
   }
   buscarPorId(id: string): Promise<Materia | null> {
-    return Promise.resolve(this.registros.get(id) ?? null);
+    return Promise.resolve(this.tabla.registros.get(id) ?? null);
   }
   buscarPorIds(ids: string[]): Promise<Materia[]> {
-    return Promise.resolve(
-      ids.map((id) => this.registros.get(id)).filter((m): m is Materia => !!m),
-    );
+    return Promise.resolve(this.tabla.porIds(ids));
   }
   listar(): Promise<Materia[]> {
-    return Promise.resolve([...this.registros.values()]);
+    return Promise.resolve(this.tabla.todos());
   }
-  listarPorMaestro(maestroId: string): Promise<Materia[]> {
+}
+
+export class GruposEnMemoria implements GrupoRepository {
+  readonly tabla = new Tabla<Grupo>();
+
+  crear(datos: DatosGrupo): Promise<Grupo> {
+    return Promise.resolve(this.tabla.insertar(datos));
+  }
+  actualizar(id: string, cambios: CambiosGrupo): Promise<Grupo | null> {
+    return Promise.resolve(this.tabla.modificar(id, cambios));
+  }
+  eliminar(id: string): Promise<void> {
+    this.tabla.registros.delete(id);
+    return Promise.resolve();
+  }
+  buscarPorId(id: string): Promise<Grupo | null> {
+    return Promise.resolve(this.tabla.registros.get(id) ?? null);
+  }
+  buscarPorIds(ids: string[]): Promise<Grupo[]> {
+    return Promise.resolve(this.tabla.porIds(ids));
+  }
+  listar(): Promise<Grupo[]> {
+    return Promise.resolve(this.tabla.todos());
+  }
+  listarPorMaestro(maestroId: string): Promise<Grupo[]> {
     return Promise.resolve(
-      [...this.registros.values()].filter((m) => m.maestroId === maestroId),
+      this.tabla.todos().filter((g) => g.maestroId === maestroId),
+    );
+  }
+  existeDeMateria(materiaId: string): Promise<boolean> {
+    return Promise.resolve(
+      this.tabla.todos().some((g) => g.materiaId === materiaId),
+    );
+  }
+  maestroImparteMateria(
+    maestroId: string,
+    materiaId: string,
+  ): Promise<boolean> {
+    return Promise.resolve(
+      this.tabla
+        .todos()
+        .some((g) => g.maestroId === maestroId && g.materiaId === materiaId),
     );
   }
 }
 
 export class InscripcionesEnMemoria implements InscripcionRepository {
-  readonly pares = new Set<string>();
-
   constructor(private readonly usuarios: UsuariosEnMemoria) {}
 
-  inscribir(alumnoIds: string[], materiaId: string): Promise<void> {
+  private cambiarGrupos(alumnoId: string, cambio: (ids: string[]) => string[]) {
+    const alumno = this.usuarios.tabla.registros.get(alumnoId);
+    if (alumno) alumno.grupoIds = cambio(alumno.grupoIds);
+  }
+
+  inscribir(alumnoIds: string[], grupoId: string): Promise<void> {
     alumnoIds
-      .filter((id) => this.usuarios.registros.get(id)?.rol === Rol.ALUMNO)
-      .forEach((id) => this.pares.add(`${id}:${materiaId}`));
+      .filter((id) => this.usuarios.tabla.registros.get(id)?.rol === Rol.ALUMNO)
+      .forEach((id) =>
+        this.cambiarGrupos(id, (ids) => [...new Set([...ids, grupoId])]),
+      );
     return Promise.resolve();
   }
-  darDeBaja(alumnoId: string, materiaId: string): Promise<void> {
-    this.pares.delete(`${alumnoId}:${materiaId}`);
+  darDeBaja(alumnoId: string, grupoId: string): Promise<void> {
+    this.cambiarGrupos(alumnoId, (ids) => ids.filter((g) => g !== grupoId));
     return Promise.resolve();
   }
-  estaInscrito(alumnoId: string, materiaId: string): Promise<boolean> {
-    return Promise.resolve(this.pares.has(`${alumnoId}:${materiaId}`));
+  vaciarGrupo(grupoId: string): Promise<void> {
+    this.usuarios.tabla
+      .todos()
+      .forEach((u) =>
+        this.cambiarGrupos(u.id, (ids) => ids.filter((g) => g !== grupoId)),
+      );
+    return Promise.resolve();
   }
-  materiasDeAlumno(alumnoId: string): Promise<string[]> {
+  estaInscrito(alumnoId: string, grupoId: string): Promise<boolean> {
     return Promise.resolve(
-      [...this.pares]
-        .filter((p) => p.startsWith(`${alumnoId}:`))
-        .map((p) => p.split(':')[1]),
+      !!this.usuarios.tabla.registros.get(alumnoId)?.grupoIds.includes(grupoId),
     );
   }
-  alumnosDeMateria(materiaId: string): Promise<Usuario[]> {
-    const ids = [...this.pares]
-      .filter((p) => p.endsWith(`:${materiaId}`))
-      .map((p) => p.split(':')[0]);
-    return this.usuarios.buscarPorIds(ids);
+  gruposDeAlumno(alumnoId: string): Promise<string[]> {
+    return Promise.resolve(
+      this.usuarios.tabla.registros.get(alumnoId)?.grupoIds ?? [],
+    );
+  }
+  alumnosDeGrupo(grupoId: string): Promise<Usuario[]> {
+    return Promise.resolve(
+      this.usuarios.tabla
+        .todos()
+        .filter((u) => u.rol === Rol.ALUMNO && u.grupoIds.includes(grupoId))
+        .map((u) => this.usuarios.publico(u)),
+    );
+  }
+}
+
+export class ClasesEnMemoria implements ClaseRepository {
+  readonly tabla = new Tabla<Clase>();
+
+  crear(datos: DatosClase): Promise<Clase> {
+    return Promise.resolve(this.tabla.insertar(datos));
+  }
+  actualizar(id: string, cambios: CambiosClase): Promise<Clase | null> {
+    return Promise.resolve(this.tabla.modificar(id, cambios));
+  }
+  eliminar(id: string): Promise<void> {
+    this.tabla.registros.delete(id);
+    return Promise.resolve();
+  }
+  buscarPorId(id: string): Promise<Clase | null> {
+    return Promise.resolve(this.tabla.registros.get(id) ?? null);
+  }
+  buscarPorSemana(materiaId: string, semana: number): Promise<Clase | null> {
+    return Promise.resolve(
+      this.tabla
+        .todos()
+        .find((c) => c.materiaId === materiaId && c.semana === semana) ?? null,
+    );
+  }
+  listarPorMateria(materiaId: string): Promise<Clase[]> {
+    return Promise.resolve(
+      this.tabla.todos().filter((c) => c.materiaId === materiaId),
+    );
+  }
+  eliminarDeMateria(materiaId: string): Promise<void> {
+    this.tabla
+      .todos()
+      .filter((c) => c.materiaId === materiaId)
+      .forEach((c) => this.tabla.registros.delete(c.id));
+    return Promise.resolve();
   }
 }
 
 export class ExamenesEnMemoria implements ExamenRepository {
-  readonly registros = new Map<string, Examen>();
+  readonly tabla = new Tabla<Examen>();
 
   crear(datos: DatosExamen): Promise<Examen> {
-    const examen = { ...datos, id: nuevoId() };
-    this.registros.set(examen.id, examen);
-    return Promise.resolve(examen);
+    return Promise.resolve(this.tabla.insertar(datos));
   }
   actualizar(id: string, cambios: CambiosExamen): Promise<Examen | null> {
-    const actual = this.registros.get(id);
-    if (!actual) return Promise.resolve(null);
-    const examen = { ...actual, ...cambios };
-    this.registros.set(id, examen);
-    return Promise.resolve(examen);
+    return Promise.resolve(this.tabla.modificar(id, cambios));
   }
   eliminar(id: string): Promise<void> {
-    this.registros.delete(id);
+    this.tabla.registros.delete(id);
     return Promise.resolve();
   }
   buscarPorId(id: string): Promise<Examen | null> {
-    return Promise.resolve(this.registros.get(id) ?? null);
+    return Promise.resolve(this.tabla.registros.get(id) ?? null);
   }
-  buscarPorSemana(materiaId: string, semana: number): Promise<Examen | null> {
-    const examen = [...this.registros.values()].find(
-      (e) => e.materiaId === materiaId && e.semana === semana,
+  buscarEnMateria(
+    materiaId: string,
+    tipo: TipoExamen,
+    semana?: number,
+  ): Promise<Examen | null> {
+    return Promise.resolve(
+      this.tabla
+        .todos()
+        .find(
+          (e) =>
+            e.materiaId === materiaId && e.tipo === tipo && e.semana === semana,
+        ) ?? null,
     );
-    return Promise.resolve(examen ?? null);
   }
   listarPorMateria(materiaId: string): Promise<Examen[]> {
     return Promise.resolve(
-      [...this.registros.values()].filter((e) => e.materiaId === materiaId),
+      this.tabla.todos().filter((e) => e.materiaId === materiaId),
     );
+  }
+  eliminarDeMateria(materiaId: string): Promise<void> {
+    this.tabla
+      .todos()
+      .filter((e) => e.materiaId === materiaId)
+      .forEach((e) => this.tabla.registros.delete(e.id));
+    return Promise.resolve();
   }
 }
 
@@ -222,34 +345,46 @@ export class IntentosEnMemoria implements IntentoRepository {
     this.registros.push(intento);
     return Promise.resolve(intento);
   }
-  buscar(examenId: string, alumnoId: string): Promise<Intento | null> {
+  buscar(
+    examenId: string,
+    grupoId: string,
+    alumnoId: string,
+  ): Promise<Intento | null> {
     return Promise.resolve(
       this.registros.find(
-        (i) => i.examenId === examenId && i.alumnoId === alumnoId,
+        (i) =>
+          i.examenId === examenId &&
+          i.grupoId === grupoId &&
+          i.alumnoId === alumnoId,
       ) ?? null,
     );
   }
-  listarDeAlumno(alumnoId: string, examenIds: string[]): Promise<Intento[]> {
+  listarDeAlumno(grupoId: string, alumnoId: string): Promise<Intento[]> {
     return Promise.resolve(
       this.registros.filter(
-        (i) => i.alumnoId === alumnoId && examenIds.includes(i.examenId),
+        (i) => i.grupoId === grupoId && i.alumnoId === alumnoId,
       ),
     );
   }
-  listarPorExamen(examenId: string): Promise<Intento[]> {
+  listarDeGrupo(grupoId: string, examenId?: string): Promise<Intento[]> {
     return Promise.resolve(
-      this.registros.filter((i) => i.examenId === examenId),
+      this.registros.filter(
+        (i) => i.grupoId === grupoId && (!examenId || i.examenId === examenId),
+      ),
     );
   }
   existeParaExamen(examenId: string): Promise<boolean> {
     return Promise.resolve(this.registros.some((i) => i.examenId === examenId));
   }
   eliminarPorExamen(examenId: string): Promise<void> {
-    this.registros.splice(
-      0,
-      this.registros.length,
-      ...this.registros.filter((i) => i.examenId !== examenId),
-    );
+    return this.quitar((i) => i.examenId === examenId);
+  }
+  eliminarDeGrupo(grupoId: string): Promise<void> {
+    return this.quitar((i) => i.grupoId === grupoId);
+  }
+  private quitar(condicion: (i: Intento) => boolean): Promise<void> {
+    const quedan = this.registros.filter((i) => !condicion(i));
+    this.registros.splice(0, this.registros.length, ...quedan);
     return Promise.resolve();
   }
 }
