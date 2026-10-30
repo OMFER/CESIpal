@@ -27,8 +27,12 @@ import {
 } from '../application/gestionar-examenes';
 import { ActualizarExamenDto, CrearExamenDto } from './examen.dto';
 import { presentarExamen } from './examen.presenter';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import * as i18n from '../../../i18n/es.json';
 
 // Exámenes como plantilla de la materia: solo para quien la edita
+@ApiTags(i18n.swagger.examenes.etiqueta)
+@ApiBearerAuth()
 @Controller('examenes')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Rol.MAESTRO, Rol.ADMIN)
@@ -41,11 +45,13 @@ export class ExamenesController {
     private readonly obtenerExamen: ObtenerExamenDeMateria,
   ) {}
 
+  @ApiOperation({ summary: i18n.swagger.examenes.crear_summary })
   @Post()
   async crear(@Body() dto: CrearExamenDto, @ActorActual() actor: Actor) {
     return presentarExamen(await this.crearExamen.ejecutar(dto, actor));
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes.listar_summary })
   @Get('materia/:materiaId')
   async listar(
     @Param('materiaId', ParseObjectIdPipe) materiaId: string,
@@ -56,6 +62,7 @@ export class ExamenesController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes.obtener_summary })
   @Get(':id')
   async obtener(
     @Param('id', ParseObjectIdPipe) id: string,
@@ -64,6 +71,7 @@ export class ExamenesController {
     return presentarExamen(await this.obtenerExamen.ejecutar(id, actor));
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes.actualizar_summary })
   @Patch(':id')
   async actualizar(
     @Param('id', ParseObjectIdPipe) id: string,
@@ -75,6 +83,7 @@ export class ExamenesController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes.eliminar_summary })
   @Delete(':id')
   @HttpCode(204)
   eliminar(

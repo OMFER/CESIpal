@@ -27,7 +27,11 @@ import {
 } from '../application/gestionar-materias';
 import { ActualizarMateriaDto, CrearMateriaDto } from './materia.dto';
 import { presentarMateria } from './materia.presenter';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import * as i18n from '../../../i18n/es.json';
 
+@ApiTags(i18n.swagger.materias.etiqueta)
+@ApiBearerAuth()
 @Controller('materias')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class MateriasController {
@@ -39,18 +43,21 @@ export class MateriasController {
     private readonly obtenerMateria: ObtenerMateria,
   ) {}
 
+  @ApiOperation({ summary: i18n.swagger.materias.crear_summary })
   @Post()
   @Roles(Rol.ADMIN)
   async crear(@Body() dto: CrearMateriaDto) {
     return presentarMateria(await this.crearMateria.ejecutar(dto));
   }
 
+  @ApiOperation({ summary: i18n.swagger.materias.listar_summary })
   @Get()
   @Roles(Rol.ADMIN)
   async listar() {
     return (await this.listarMaterias.ejecutar()).map(presentarMateria);
   }
 
+  @ApiOperation({ summary: i18n.swagger.materias.obtener_summary })
   @Get(':id')
   async obtener(
     @Param('id', ParseObjectIdPipe) id: string,
@@ -59,6 +66,7 @@ export class MateriasController {
     return presentarMateria(await this.obtenerMateria.ejecutar(id, actor));
   }
 
+  @ApiOperation({ summary: i18n.swagger.materias.actualizar_summary })
   @Patch(':id')
   @Roles(Rol.ADMIN)
   async actualizar(
@@ -68,6 +76,7 @@ export class MateriasController {
     return presentarMateria(await this.actualizarMateria.ejecutar(id, dto));
   }
 
+  @ApiOperation({ summary: i18n.swagger.materias.eliminar_summary })
   @Delete(':id')
   @Roles(Rol.ADMIN)
   @HttpCode(204)
