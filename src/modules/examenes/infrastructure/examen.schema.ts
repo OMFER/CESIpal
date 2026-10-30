@@ -14,11 +14,13 @@ export class PreguntaModelo {
   respuestaCorrecta!: number;
 }
 
-// La colección conserva el nombre que Mongoose generó para el esquema anterior
-@Schema({ collection: 'examens', timestamps: true })
+@Schema({ collection: 'examenes', timestamps: true })
 export class ExamenModelo {
   @Prop({ type: Types.ObjectId, ref: 'MateriaModelo', required: true })
   materia!: Types.ObjectId;
+
+  @Prop({ type: String, required: true, enum: TipoExamen })
+  tipo!: TipoExamen;
 
   @Prop({ min: 1 })
   semana?: number;
@@ -29,29 +31,27 @@ export class ExamenModelo {
   @Prop({ trim: true })
   descripcion?: string;
 
-  @Prop({ required: true, enum: TipoExamen, default: TipoExamen.SEMANAL })
-  tipo!: TipoExamen;
-
-  @Prop({ type: Date })
-  fechaLimite?: Date;
-
   @Prop({ required: true, default: PUNTAJE_MAXIMO_POR_DEFECTO })
   puntajeMaximo!: number;
+
+  @Prop({ required: true, default: 0, min: 0 })
+  diasExtra!: number;
 
   @Prop({ type: [SchemaFactory.createForClass(PreguntaModelo)], default: [] })
   preguntas!: PreguntaModelo[];
 }
 
 export const ExamenSchema = SchemaFactory.createForClass(ExamenModelo);
-ExamenSchema.index(
-  { materia: 1, semana: 1 },
-  { unique: true, partialFilterExpression: { semana: { $exists: true } } },
-);
+// Un examen de cada tipo por semana, y un solo Final (sin semana) por materia
+ExamenSchema.index({ materia: 1, tipo: 1, semana: 1 }, { unique: true });
 
 @Schema({ collection: 'intentos', timestamps: true })
 export class IntentoModelo {
   @Prop({ type: Types.ObjectId, ref: 'ExamenModelo', required: true })
   examen!: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'GrupoModelo', required: true })
+  grupo!: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'UsuarioModelo', required: true })
   alumno!: Types.ObjectId;
@@ -70,4 +70,5 @@ export class IntentoModelo {
 }
 
 export const IntentoSchema = SchemaFactory.createForClass(IntentoModelo);
-IntentoSchema.index({ examen: 1, alumno: 1 }, { unique: true });
+IntentoSchema.index({ examen: 1, grupo: 1, alumno: 1 }, { unique: true });
+IntentoSchema.index({ grupo: 1, alumno: 1 });
