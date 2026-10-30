@@ -29,7 +29,43 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
+    },
+  },
+  {
+    // Arquitectura limpia: dominio y aplicación no dependen de frameworks ni de las capas externas
+    files: [
+      'src/shared/domain/**/*.ts',
+      'src/modules/*/domain/**/*.ts',
+      'src/modules/*/application/**/*.ts',
+    ],
+    ignores: ['**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@nestjs/*',
+                'mongoose',
+                'bcrypt',
+                'passport*',
+                'class-validator',
+                'class-transformer',
+                'express',
+              ],
+              message:
+                'El dominio y la aplicación no importan frameworks: define un puerto (interfaz) en domain/.',
+            },
+            {
+              group: ['**/infrastructure/**', '**/presentation/**'],
+              message:
+                'Las capas internas no importan de infrastructure/ ni presentation/.',
+            },
+          ],
+        },
+      ],
     },
   },
 );
