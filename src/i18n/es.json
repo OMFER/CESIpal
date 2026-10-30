@@ -1,0 +1,19 @@
+{
+  "swagger": {
+    "global": {
+      "titulo": "API Plataforma Escolar",
+      "descripcion": "Documentación de los endpoints para la plataforma educativa",
+      "version": "1.0"
+    },
+    "auth": {
+      "etiqueta": "Autenticación",
+      "login_summary": "Iniciar sesión en la plataforma",
+      "login_description": "Recibe correo y contraseña, y devuelve un token JWT junto con los datos del usuario."
+    },
+    "materias": {
+      "etiqueta": "Materias",
+      "crear_summary": "Crear una nueva materia",
+      "listar_summary": "Obtener las materias del usuario actual"
+    }
+  }
+}
