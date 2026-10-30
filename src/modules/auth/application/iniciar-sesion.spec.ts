@@ -36,7 +36,7 @@ describe('CrearUsuario', () => {
     const { usuarios, usuario } = await preparar();
     expect(usuario.correo).toBe('luis@escuela.mx');
     expect(usuario.nombre).toBe('Luis');
-    expect(usuarios.registros.get(usuario.id)?.passwordHash).toBe(
+    expect(usuarios.tabla.registros.get(usuario.id)?.passwordHash).toBe(
       'hash:secreto1',
     );
   });
