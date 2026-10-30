@@ -4,7 +4,7 @@ import {
   NoEncontradoError,
 } from '../../../shared/domain/errores';
 import { validarSemanaDeMateria } from '../../materias/domain/materia';
-import { AccesoMaterias } from '../../materias/application/acceso-materias';
+import { AccesoMaterias } from '../../materias/application/acceso';
 import { Clase } from '../domain/clase';
 import {
   CambiosClase,

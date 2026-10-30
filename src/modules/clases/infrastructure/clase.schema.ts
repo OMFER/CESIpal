@@ -12,7 +12,7 @@ export class LinksModelo {
 
 @Schema({ _id: false })
 export class RecursoModelo {
-  @Prop({ required: true, enum: TipoRecurso })
+  @Prop({ type: String, required: true, enum: TipoRecurso })
   tipo!: TipoRecurso;
 
   @Prop({ required: true, trim: true })

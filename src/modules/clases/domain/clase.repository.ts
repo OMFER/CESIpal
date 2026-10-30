@@ -10,6 +10,7 @@ export interface ClaseRepository {
   buscarPorId(id: string): Promise<Clase | null>;
   buscarPorSemana(materiaId: string, semana: number): Promise<Clase | null>;
   listarPorMateria(materiaId: string): Promise<Clase[]>;
+  eliminarDeMateria(materiaId: string): Promise<void>;
 }
 
 export const CLASE_REPOSITORY = Symbol('ClaseRepository');
