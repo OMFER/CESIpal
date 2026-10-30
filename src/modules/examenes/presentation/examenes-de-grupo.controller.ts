@@ -35,8 +35,12 @@ import {
   presentarResultadoDeIntento,
   presentarResumenExamen,
 } from './examen.presenter';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import * as i18n from '../../../i18n/es.json';
 
 // Exámenes tal como se presentan en un grupo: con sus fechas, intentos y calificaciones
+@ApiTags(i18n.swagger.examenes_grupo.etiqueta)
+@ApiBearerAuth()
 @Controller('grupos/:grupoId')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ExamenesDeGrupoController {
@@ -49,6 +53,7 @@ export class ExamenesDeGrupoController {
     private readonly obtenerCalificaciones: ObtenerCalificaciones,
   ) {}
 
+  @ApiOperation({ summary: i18n.swagger.examenes_grupo.listar_summary })
   @Get('examenes')
   async listar(
     @Param('grupoId', ParseObjectIdPipe) grupoId: string,
@@ -59,6 +64,7 @@ export class ExamenesDeGrupoController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes_grupo.semana_summary })
   @Get('examenes/semana/:semana')
   async deSemana(
     @Param('grupoId', ParseObjectIdPipe) grupoId: string,
@@ -70,6 +76,7 @@ export class ExamenesDeGrupoController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes_grupo.obtener_summary })
   @Get('examenes/:examenId')
   async obtener(
     @Param('grupoId', ParseObjectIdPipe) grupoId: string,
@@ -81,6 +88,7 @@ export class ExamenesDeGrupoController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes_grupo.responder_summary })
   @Post('examenes/:examenId/intentos')
   @Roles(Rol.ALUMNO)
   async responder(
@@ -99,6 +107,7 @@ export class ExamenesDeGrupoController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes_grupo.intentos_summary })
   @Get('examenes/:examenId/intentos')
   async intentos(
     @Param('grupoId', ParseObjectIdPipe) grupoId: string,
@@ -110,6 +119,7 @@ export class ExamenesDeGrupoController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.examenes_grupo.calificaciones_summary })
   @Get('calificaciones')
   async calificaciones(
     @Param('grupoId', ParseObjectIdPipe) grupoId: string,

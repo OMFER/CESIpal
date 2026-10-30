@@ -40,6 +40,8 @@ import {
   InscribirAlumnosDto,
 } from './materia.dto';
 import { presentarGrupo } from './materia.presenter';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import * as i18n from '../../../i18n/es.json';
 
 const conFecha = <T extends { fechaInicio?: string }>({
   fechaInicio,
@@ -49,6 +51,8 @@ const conFecha = <T extends { fechaInicio?: string }>({
     ? resto
     : { ...resto, fechaInicio: new Date(fechaInicio) };
 
+@ApiTags(i18n.swagger.grupos.etiqueta)
+@ApiBearerAuth()
 @Controller('grupos')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class GruposController {
@@ -64,6 +68,7 @@ export class GruposController {
     private readonly listarAlumnos: ListarAlumnosDeGrupo,
   ) {}
 
+  @ApiOperation({ summary: i18n.swagger.grupos.crear_summary })
   @Post()
   @Roles(Rol.ADMIN)
   async crear(@Body() dto: CrearGrupoDto, @ActorActual() actor: Actor) {
@@ -74,17 +79,20 @@ export class GruposController {
     return presentarGrupo(await this.obtenerGrupo.ejecutar(grupo.id, actor));
   }
 
+  @ApiOperation({ summary: i18n.swagger.grupos.listar_summary })
   @Get()
   @Roles(Rol.ADMIN)
   async listar() {
     return (await this.listarGrupos.ejecutar()).map(presentarGrupo);
   }
 
+  @ApiOperation({ summary: i18n.swagger.grupos.mios_summary })
   @Get('mios')
   async mios(@ActorActual() actor: Actor) {
     return (await this.obtenerMisGrupos.ejecutar(actor)).map(presentarGrupo);
   }
 
+  @ApiOperation({ summary: i18n.swagger.grupos.obtener_summary })
   @Get(':id')
   async obtener(
     @Param('id', ParseObjectIdPipe) id: string,
@@ -93,6 +101,7 @@ export class GruposController {
     return presentarGrupo(await this.obtenerGrupo.ejecutar(id, actor));
   }
 
+  @ApiOperation({ summary: i18n.swagger.grupos.actualizar_summary })
   @Patch(':id')
   @Roles(Rol.ADMIN)
   async actualizar(
@@ -104,6 +113,7 @@ export class GruposController {
     return presentarGrupo(await this.obtenerGrupo.ejecutar(id, actor));
   }
 
+  @ApiOperation({ summary: i18n.swagger.grupos.eliminar_summary })
   @Delete(':id')
   @Roles(Rol.ADMIN)
   @HttpCode(204)
@@ -111,6 +121,7 @@ export class GruposController {
     return this.eliminarGrupo.ejecutar(id);
   }
 
+  @ApiOperation({ summary: i18n.swagger.grupos.alumnos_summary })
   @Get(':id/alumnos')
   @Roles(Rol.ADMIN, Rol.MAESTRO)
   async alumnos(
@@ -120,6 +131,7 @@ export class GruposController {
     return (await this.listarAlumnos.ejecutar(id, actor)).map(presentarUsuario);
   }
 
+  @ApiOperation({ summary: i18n.swagger.grupos.inscribir_summary })
   @Post(':id/alumnos')
   @Roles(Rol.ADMIN)
   async inscribir(
@@ -131,6 +143,7 @@ export class GruposController {
     );
   }
 
+  @ApiOperation({ summary: i18n.swagger.grupos.baja_summary })
   @Delete(':id/alumnos/:alumnoId')
   @Roles(Rol.ADMIN)
   @HttpCode(204)
