@@ -40,6 +40,8 @@ import {
 import { MongoMateriaRepository } from './infrastructure/mongo-materia.repository';
 import { MongoGrupoRepository } from './infrastructure/mongo-grupo.repository';
 import { MongoInscripcionRepository } from './infrastructure/mongo-inscripcion.repository';
+import { MongoUsoDeSemanas } from './infrastructure/mongo-uso-de-semanas';
+import { USO_DE_SEMANAS } from './domain/uso-de-semanas';
 import { MateriasController } from './presentation/materias.controller';
 import { GruposController } from './presentation/grupos.controller';
 
@@ -59,6 +61,7 @@ const DETALLE = [MATERIA_REPOSITORY, USUARIO_REPOSITORY, RELOJ];
     { provide: MATERIA_REPOSITORY, useClass: MongoMateriaRepository },
     { provide: GRUPO_REPOSITORY, useClass: MongoGrupoRepository },
     { provide: INSCRIPCION_REPOSITORY, useClass: MongoInscripcionRepository },
+    { provide: USO_DE_SEMANAS, useClass: MongoUsoDeSemanas },
     casoDeUso(AccesoGrupos, ACCESO),
     casoDeUso(AccesoMaterias, [
       MATERIA_REPOSITORY,
@@ -66,7 +69,7 @@ const DETALLE = [MATERIA_REPOSITORY, USUARIO_REPOSITORY, RELOJ];
       INSCRIPCION_REPOSITORY,
     ]),
     casoDeUso(CrearMateria, [MATERIA_REPOSITORY]),
-    casoDeUso(ActualizarMateria, [MATERIA_REPOSITORY]),
+    casoDeUso(ActualizarMateria, [MATERIA_REPOSITORY, USO_DE_SEMANAS]),
     casoDeUso(EliminarMateria, [
       MATERIA_REPOSITORY,
       GRUPO_REPOSITORY,
