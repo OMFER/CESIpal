@@ -6,8 +6,8 @@ export interface Usuario {
   nombre: string;
   correo: string;
   rol: Rol;
-  // Materias en las que está inscrito (solo alumnos)
-  materiaIds: string[];
+  // Grupos en los que está inscrito (solo alumnos)
+  grupoIds: string[];
 }
 
 export const LONGITUD_MINIMA_PASSWORD = 6;

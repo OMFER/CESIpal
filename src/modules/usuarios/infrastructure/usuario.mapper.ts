@@ -7,7 +7,7 @@ export interface UsuarioPlano {
   nombre: string;
   correo: string;
   rol: Rol;
-  materias?: Types.ObjectId[];
+  grupos?: Types.ObjectId[];
 }
 
 export function aUsuario(doc: UsuarioPlano): Usuario {
@@ -16,6 +16,6 @@ export function aUsuario(doc: UsuarioPlano): Usuario {
     nombre: doc.nombre,
     correo: doc.correo,
     rol: doc.rol,
-    materiaIds: (doc.materias ?? []).map((m) => m.toString()),
+    grupoIds: (doc.grupos ?? []).map((m) => m.toString()),
   };
 }
