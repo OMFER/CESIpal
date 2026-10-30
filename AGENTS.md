@@ -1,23 +1,42 @@
 # Reglas del Proyecto (AI Agents Context)
 
-Este documento define las directrices arquitectónicas y de estilo para el desarrollo de la API backend de la plataforma escolar.
+Este documento define las directrices arquitectónicas y de estilo para el desarrollo de la API backend de la plataforma escolar. **Todo el código sigue arquitectura limpia y los principios SOLID.**
 
 ## 🛠️ Stack Tecnológico
-*   **Framework:** NestJS (TypeScript).
-*   **Base de Datos:** MongoDB mediante Mongoose.
-*   **Seguridad:** JWT (JSON Web Tokens) nativo y bcrypt.
+*   **Framework:** NestJS (TypeScript en modo `strict`).
+*   **Base de Datos:** MongoDB mediante Mongoose (solo en la capa de infraestructura).
+*   **Seguridad:** JWT y bcrypt, detrás de interfaces (`TokenService`, `PasswordHasher`).
 
-## 📐 Reglas de Arquitectura
-*   **Separación de Responsabilidades:** Los Controladores solo gestionan las peticiones HTTP. Toda la lógica de negocio y consultas a la base de datos debe residir exclusivamente en los Servicios.
-*   **Validación de Datos:** Toda entrada de datos debe validarse usando DTOs con `class-validator` y transformarse con `class-transformer`.
-*   **Schemas (Mongoose):** Los modelos de base de datos se definen usando clases y decoradores (`@Schema`, `@Prop`).
-*   **Referencias NoSQL:** Utilizar `Types.ObjectId` para relacionar documentos (ej. relacionar Clases con Materias).
+## 📐 Arquitectura: cuatro capas por módulo
+Cada módulo vive en `src/modules/<modulo>/` (usuarios, auth, materias, clases, examenes); lo compartido en `src/shared/`.
+
+| Capa | Contiene | Puede importar |
+|---|---|---|
+| `domain/` | Entidades (interfaces), reglas puras, errores de dominio e **interfaces de repositorio/servicio** con su token (`Symbol`) | Solo otros `domain/` |
+| `application/` | Un caso de uso por acción (`CrearExamen`, `ResponderExamen`...), clase con método `ejecutar` y dependencias por constructor | `domain/` y otros `application/` |
+| `infrastructure/` | Esquemas Mongoose, repositorios `Mongo*` que implementan las interfaces, mappers documento ↔ entidad, adaptadores (bcrypt, JWT) | Todo lo anterior + frameworks |
+| `presentation/` | Controladores, DTOs (`class-validator`), presenters (entidad → JSON), guards y decoradores | `application/`, `domain/` |
+
+*   **Regla de dependencia:** `domain/` y `application/` **no importan** `@nestjs/*`, `mongoose`, `bcrypt`, `passport`, `class-validator`, `express`, ni nada de `infrastructure/` o `presentation/`. ESLint lo hace cumplir (`npm run lint`).
+*   **Inyección:** los casos de uso son clases planas; se registran en el módulo con `casoDeUso(Clase, [TOKENS...])` (`src/shared/infrastructure/caso-de-uso.provider.ts`). Las implementaciones se enlazan con `{ provide: TOKEN, useClass: MongoXRepository }`.
+*   **Errores:** el dominio y la aplicación lanzan `NoEncontradoError`, `SinPermisoError`, `ConflictoError`, `DatosInvalidosError`, `NoAutenticadoError` (`src/shared/domain/errores.ts`); `FiltroErroresDominio` los traduce a 404/403/409/400/401. No lanzar `HttpException` fuera de `presentation/`.
+*   **Permisos sobre materias:** usar `AccesoMaterias.paraLeer` / `paraEditar` (módulo materias), nunca repetir la lógica.
+*   **Fecha actual:** inyectar `RELOJ` (`Reloj`), no usar `new Date()` en reglas de negocio.
+*   **Validación:** formato de entrada en DTOs (`class-validator`); invariantes de negocio (rangos, unicidad, reglas) en el dominio o el caso de uso.
+*   **Respuesta JSON:** los controladores devuelven el resultado de un presenter, nunca entidades ni documentos de Mongoose. Los ids se exponen como `_id`.
 
 ## 🔒 Seguridad y Control de Acceso
-*   **Autenticación:** Las rutas privadas deben usar `@UseGuards(JwtAuthGuard)`.
-*   **Roles (RBAC):** Restringir acciones específicas con el decorador `@Roles(Rol.MAESTRO)` en conjunto con `RolesGuard`.
+*   **Sin registro público:** solo el rol `admin` crea cuentas. El primer admin se crea al arrancar con `ADMIN_CORREO` / `ADMIN_PASSWORD`.
+*   **Autenticación:** las rutas privadas usan `@UseGuards(JwtAuthGuard, RolesGuard)`; el actor se obtiene con `@ActorActual()`.
+*   **Roles (RBAC):** `@Roles(Rol.MAESTRO)` restringe por rol; la pertenencia a la materia la decide `AccesoMaterias`.
+*   **Variables de entorno:** se validan al arrancar (`validar-entorno.ts`); sin `MONGO_URI` o `JWT_SECRET` la app no inicia.
+
+## 🧪 Pruebas
+*   Los casos de uso se prueban con repositorios en memoria (`src/testing/`), sin base de datos.
+*   Archivos `*.spec.ts` junto al código que prueban.
 
 ## 💻 Comandos de Desarrollo
 *   **Verificación de tipos:** `npx tsc --noEmit`
-*   **Linter:** `npm run lint`
+*   **Linter (incluye la regla de capas):** `npm run lint`
+*   **Pruebas:** `npm test`
 *   **Ejecución:** `npm run start:dev`
