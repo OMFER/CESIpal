@@ -68,7 +68,11 @@ export class ExamenesController {
     @Param('id', ParseObjectIdPipe) id: string,
     @ActorActual() actor: Actor,
   ) {
-    return presentarExamen(await this.obtenerExamen.ejecutar(id, actor));
+    const { examen, tieneRespuestas } = await this.obtenerExamen.ejecutar(
+      id,
+      actor,
+    );
+    return { ...presentarExamen(examen), tieneRespuestas };
   }
 
   @ApiOperation({ summary: i18n.swagger.examenes.actualizar_summary })

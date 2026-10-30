@@ -2,6 +2,7 @@ import {
   DatosInvalidosError,
   SinPermisoError,
 } from '../../../shared/domain/errores';
+import { formatearFecha } from '../../../shared/domain/fechas';
 import { Examen, TipoExamen } from './examen';
 
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
@@ -62,21 +63,15 @@ export function calcularVentana(
   return { abre, cierra, estado };
 }
 
-const formatoFecha = new Intl.DateTimeFormat('es-MX', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
-
 export function validarQuePuedeResponder(
   examen: Pick<Examen, 'preguntas'>,
   ventana: Ventana,
   respuestas: number[],
+  zonaHoraria = 'UTC',
 ): void {
   if (ventana.estado === 'proxima') {
     throw new SinPermisoError(
-      `El examen abre el ${formatoFecha.format(ventana.abre)}`,
+      `El examen abre el ${formatearFecha(ventana.abre, zonaHoraria)}`,
     );
   }
   if (ventana.estado === 'cerrada') {
@@ -87,4 +82,9 @@ export function validarQuePuedeResponder(
       `Se esperaban ${examen.preguntas.length} respuestas y llegaron ${respuestas.length}`,
     );
   }
+}
+
+// La clave de respuestas se revela hasta que nadie del grupo puede responder ya
+export function puedeRevelarRespuestas(ventana: Ventana): boolean {
+  return ventana.estado === 'cerrada';
 }

@@ -22,19 +22,23 @@ export function calificarExamen(
   return { aciertos, totalPreguntas, calificacion };
 }
 
-export interface PreguntaRevisada extends Pregunta {
+export interface PreguntaRevisada extends Omit<Pregunta, 'respuestaCorrecta'> {
   miRespuesta: number;
   acierto: boolean;
+  // Solo cuando ya cerró el examen; antes, otros alumnos aún podrían responderlo
+  respuestaCorrecta?: number;
 }
 
-// Lo que ve el alumno después de responder: qué eligió, si acertó y cuál era la correcta
+// Lo que ve el alumno después de responder: qué eligió, si acertó y, si ya cerró, cuál era la correcta
 export function revisarRespuestas(
   preguntas: Pregunta[],
   respuestas: number[],
+  conRespuestasCorrectas: boolean,
 ): PreguntaRevisada[] {
-  return preguntas.map((pregunta, i) => ({
+  return preguntas.map(({ respuestaCorrecta, ...pregunta }, i) => ({
     ...pregunta,
     miRespuesta: respuestas[i],
-    acierto: respuestas[i] === pregunta.respuestaCorrecta,
+    acierto: respuestas[i] === respuestaCorrecta,
+    ...(conRespuestasCorrectas && { respuestaCorrecta }),
   }));
 }

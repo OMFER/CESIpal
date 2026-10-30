@@ -31,9 +31,15 @@ const presentarPreguntaSinRespuesta = ({
   opciones,
 });
 
+// respuestaCorrecta solo viene cuando el examen ya cerró en el grupo
 const presentarRevision = (revisadas: PreguntaRevisada[]) =>
   revisadas.map((p) => ({
-    ...presentarPregunta(p),
+    _id: p.id,
+    enunciado: p.enunciado,
+    opciones: p.opciones,
+    ...(p.respuestaCorrecta !== undefined && {
+      respuestaCorrecta: p.respuestaCorrecta,
+    }),
     miRespuesta: p.miRespuesta,
     acierto: p.acierto,
   }));
@@ -106,9 +112,12 @@ export function presentarExamenEnGrupo(vista: ExamenEnGrupo) {
 export function presentarResultadoDeIntento({
   intento,
   revision,
+  ventana,
 }: ResultadoDeIntento) {
   return {
     ...presentarResumenIntento(intento),
+    // Las respuestas correctas se muestran a partir de ventana.cierra
+    ventana,
     revision: presentarRevision(revision),
   };
 }

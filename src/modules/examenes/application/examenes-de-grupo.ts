@@ -6,10 +6,16 @@ import {
 } from '../../../shared/domain/errores';
 import { Reloj } from '../../../shared/domain/reloj';
 import { AccesoGrupos, ContextoGrupo } from '../../materias/application/acceso';
-import { Examen, puedeVerRespuestas, TipoExamen } from '../domain/examen';
+import {
+  Examen,
+  ordenarExamenes,
+  puedeVerRespuestas,
+  TipoExamen,
+} from '../domain/examen';
 import { Intento } from '../domain/intento';
 import {
   calcularVentana,
+  puedeRevelarRespuestas,
   validarQuePuedeResponder,
   Ventana,
 } from '../domain/ventana';
@@ -22,7 +28,6 @@ import {
   ExamenRepository,
   IntentoRepository,
 } from '../domain/examen.repository';
-import { buscarExamen } from './gestionar-examenes';
 
 export interface ResumenExamen {
   examen: Examen;
@@ -43,19 +48,10 @@ export interface ExamenEnGrupo extends ResumenExamen {
   preguntas: PreguntasVisibles;
 }
 
-const ORDEN_TIPO: Record<TipoExamen, number> = {
-  [TipoExamen.SEMANAL]: 0,
-  [TipoExamen.REPOSICION]: 1,
-  [TipoExamen.FINAL]: 2,
-};
-
-// El Final va al último; los demás por semana, el Semanal antes que su Reposición
-export const ordenarExamenes = (examenes: Examen[]) =>
-  [...examenes].sort(
-    (a, b) =>
-      (a.semana ?? Infinity) - (b.semana ?? Infinity) ||
-      ORDEN_TIPO[a.tipo] - ORDEN_TIPO[b.tipo],
-  );
+// Lo que necesita cualquier consulta: el grupo, su materia y los exámenes de esa materia
+interface Consulta extends ContextoGrupo {
+  examenesDeMateria: Examen[];
+}
 
 // Lo común a las consultas de exámenes dentro de un grupo
 abstract class ConsultaEnGrupo {
@@ -64,13 +60,19 @@ abstract class ConsultaEnGrupo {
     protected readonly examenes: ExamenRepository,
     protected readonly intentos: IntentoRepository,
     protected readonly reloj: Reloj,
+    protected readonly zonaHoraria = 'UTC',
   ) {}
 
-  protected ventanaDe(
-    examen: Examen,
-    { grupo, materia }: ContextoGrupo,
-    examenesDeMateria: Examen[],
-  ): Ventana {
+  protected async preparar(grupoId: string, actor: Actor): Promise<Consulta> {
+    const contexto = await this.acceso.paraLeer(grupoId, actor);
+    const examenesDeMateria = await this.examenes.listarPorMateria(
+      contexto.materia.id,
+    );
+    return { ...contexto, examenesDeMateria };
+  }
+
+  protected ventanaDe(examen: Examen, consulta: Consulta): Ventana {
+    const { grupo, materia, examenesDeMateria } = consulta;
     const semanal =
       examen.tipo === TipoExamen.REPOSICION
         ? examenesDeMateria.find(
@@ -87,31 +89,28 @@ abstract class ConsultaEnGrupo {
 
   protected async resumir(
     examenes: Examen[],
-    contexto: ContextoGrupo,
+    consulta: Consulta,
     actor: Actor,
   ): Promise<ResumenExamen[]> {
-    const deMateria = await this.examenes.listarPorMateria(contexto.materia.id);
     const intentos =
       actor.rol === Rol.ALUMNO
-        ? await this.intentos.listarDeAlumno(contexto.grupo.id, actor.id)
+        ? await this.intentos.listarDeAlumno(consulta.grupo.id, actor.id)
         : [];
     return examenes.map((examen) => ({
       examen,
-      ventana: this.ventanaDe(examen, contexto, deMateria),
+      ventana: this.ventanaDe(examen, consulta),
       ...(actor.rol === Rol.ALUMNO && {
         miIntento: intentos.find((i) => i.examenId === examen.id) ?? null,
       }),
     }));
   }
 
-  protected async examenDelGrupo(
-    examenId: string,
-    contexto: ContextoGrupo,
-  ): Promise<Examen> {
-    const examen = await buscarExamen(this.examenes, examenId);
-    if (examen.materiaId !== contexto.materia.id) {
+  // Los exámenes de la materia ya están cargados: no hace falta volver a buscarlo
+  protected examenDelGrupo(examenId: string, consulta: Consulta): Examen {
+    const examen = consulta.examenesDeMateria.find((e) => e.id === examenId);
+    if (!examen) {
       throw new NoEncontradoError(
-        'El examen no pertenece a la materia de este grupo',
+        'Examen no encontrado en la materia de este grupo',
       );
     }
     return examen;
@@ -120,11 +119,12 @@ abstract class ConsultaEnGrupo {
 
 export class ListarExamenesDeGrupo extends ConsultaEnGrupo {
   async ejecutar(grupoId: string, actor: Actor): Promise<ResumenExamen[]> {
-    const contexto = await this.acceso.paraLeer(grupoId, actor);
-    const examenes = ordenarExamenes(
-      await this.examenes.listarPorMateria(contexto.materia.id),
+    const consulta = await this.preparar(grupoId, actor);
+    return this.resumir(
+      ordenarExamenes(consulta.examenesDeMateria),
+      consulta,
+      actor,
     );
-    return this.resumir(examenes, contexto, actor);
   }
 }
 
@@ -139,11 +139,11 @@ export class ObtenerExamenesDeSemana extends ConsultaEnGrupo {
     semana: number,
     actor: Actor,
   ): Promise<ExamenesDeSemana> {
-    const contexto = await this.acceso.paraLeer(grupoId, actor);
-    const deLaSemana = (
-      await this.examenes.listarPorMateria(contexto.materia.id)
-    ).filter((e) => e.semana === semana);
-    const resumenes = await this.resumir(deLaSemana, contexto, actor);
+    const consulta = await this.preparar(grupoId, actor);
+    const deLaSemana = consulta.examenesDeMateria.filter(
+      (e) => e.semana === semana,
+    );
+    const resumenes = await this.resumir(deLaSemana, consulta, actor);
     const delTipo = (tipo: TipoExamen) =>
       resumenes.find((r) => r.examen.tipo === tipo) ?? null;
     return {
@@ -159,9 +159,9 @@ export class ObtenerExamenEnGrupo extends ConsultaEnGrupo {
     examenId: string,
     actor: Actor,
   ): Promise<ExamenEnGrupo> {
-    const contexto = await this.acceso.paraLeer(grupoId, actor);
-    const examen = await this.examenDelGrupo(examenId, contexto);
-    const [resumen] = await this.resumir([examen], contexto, actor);
+    const consulta = await this.preparar(grupoId, actor);
+    const examen = this.examenDelGrupo(examenId, consulta);
+    const [resumen] = await this.resumir([examen], consulta, actor);
     return { ...resumen, preguntas: this.preguntasVisibles(resumen, actor) };
   }
 
@@ -173,7 +173,11 @@ export class ObtenerExamenEnGrupo extends ConsultaEnGrupo {
     if (miIntento) {
       return {
         modo: 'revision',
-        preguntas: revisarRespuestas(examen.preguntas, miIntento.respuestas),
+        preguntas: revisarRespuestas(
+          examen.preguntas,
+          miIntento.respuestas,
+          puedeRevelarRespuestas(ventana),
+        ),
       };
     }
     return ventana.estado === 'abierta'
@@ -185,6 +189,7 @@ export class ObtenerExamenEnGrupo extends ConsultaEnGrupo {
 export interface ResultadoDeIntento {
   intento: Intento;
   revision: PreguntaRevisada[];
+  ventana: Ventana;
 }
 
 export class ResponderExamen extends ConsultaEnGrupo {
@@ -197,14 +202,10 @@ export class ResponderExamen extends ConsultaEnGrupo {
     if (actor.rol !== Rol.ALUMNO) {
       throw new SinPermisoError('Solo los alumnos pueden responder exámenes');
     }
-    const contexto = await this.acceso.paraLeer(grupoId, actor);
-    const examen = await this.examenDelGrupo(examenId, contexto);
-    const deMateria = await this.examenes.listarPorMateria(contexto.materia.id);
-    validarQuePuedeResponder(
-      examen,
-      this.ventanaDe(examen, contexto, deMateria),
-      respuestas,
-    );
+    const consulta = await this.preparar(grupoId, actor);
+    const examen = this.examenDelGrupo(examenId, consulta);
+    const ventana = this.ventanaDe(examen, consulta);
+    validarQuePuedeResponder(examen, ventana, respuestas, this.zonaHoraria);
 
     if (await this.intentos.buscar(examenId, grupoId, actor.id)) {
       throw new ConflictoError('Ya respondiste este examen');
@@ -216,9 +217,15 @@ export class ResponderExamen extends ConsultaEnGrupo {
       respuestas,
       ...calificarExamen(examen.preguntas, respuestas, examen.puntajeMaximo),
     });
+    // El examen sigue abierto para el resto del grupo: todavía sin la respuesta correcta
     return {
       intento,
-      revision: revisarRespuestas(examen.preguntas, respuestas),
+      ventana,
+      revision: revisarRespuestas(
+        examen.preguntas,
+        respuestas,
+        puedeRevelarRespuestas(ventana),
+      ),
     };
   }
 }

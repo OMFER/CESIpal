@@ -87,3 +87,17 @@ export function validarPreguntas(preguntas: Pregunta[]): void {
 export function puedeVerRespuestas(actor: Actor): boolean {
   return actor.rol !== Rol.ALUMNO;
 }
+
+const ORDEN_TIPO: Record<TipoExamen, number> = {
+  [TipoExamen.SEMANAL]: 0,
+  [TipoExamen.REPOSICION]: 1,
+  [TipoExamen.FINAL]: 2,
+};
+
+// Por semana, el Semanal antes que su Reposición, y el Final al último
+export const ordenarExamenes = (examenes: Examen[]): Examen[] =>
+  [...examenes].sort(
+    (a, b) =>
+      (a.semana ?? Infinity) - (b.semana ?? Infinity) ||
+      ORDEN_TIPO[a.tipo] - ORDEN_TIPO[b.tipo],
+  );
