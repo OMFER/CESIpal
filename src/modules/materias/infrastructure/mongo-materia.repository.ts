@@ -34,7 +34,7 @@ export class MongoMateriaRepository implements MateriaRepository {
     cambios: Partial<DatosMateria>,
   ): Promise<Materia | null> {
     const doc = await this.modelo
-      .findByIdAndUpdate(id, cambios, { new: true })
+      .findByIdAndUpdate(id, cambios, { returnDocument: 'after' })
       .lean<MateriaPlana>()
       .exec();
     return doc ? aMateria(doc) : null;

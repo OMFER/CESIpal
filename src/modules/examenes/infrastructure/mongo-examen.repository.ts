@@ -71,7 +71,9 @@ export class MongoExamenRepository implements ExamenRepository {
 
   async actualizar(id: string, cambios: CambiosExamen): Promise<Examen | null> {
     const doc = await this.modelo
-      .findByIdAndUpdate(id, sinIdsDePregunta(cambios), { new: true })
+      .findByIdAndUpdate(id, sinIdsDePregunta(cambios), {
+        returnDocument: 'after',
+      })
       .lean<ExamenPlano>()
       .exec();
     return doc ? aExamen(doc) : null;

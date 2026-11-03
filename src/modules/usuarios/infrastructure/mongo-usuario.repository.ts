@@ -35,7 +35,7 @@ export class MongoUsuarioRepository implements UsuarioRepository {
   ): Promise<Usuario | null> {
     const cambios = passwordHash ? { ...datos, password: passwordHash } : datos;
     const doc = await this.modelo
-      .findByIdAndUpdate(id, cambios, { new: true })
+      .findByIdAndUpdate(id, cambios, { returnDocument: 'after' })
       .select(SIN_PASSWORD)
       .lean<UsuarioPlano>()
       .exec();
