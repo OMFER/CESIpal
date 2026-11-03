@@ -17,10 +17,32 @@ export interface NotaDeSemana {
 export interface Boleta {
   semanas: NotaDeSemana[];
   final: Nota | null;
+  // Calificación que lleva el alumno en el semestre, sobre ESCALA_SEMESTRE
+  semestre: number;
 }
+
+export const ESCALA_SEMESTRE = 10;
 
 const porcentaje = (nota: Nota) =>
   nota.puntajeMaximo === 0 ? 0 : nota.calificacion / nota.puntajeMaximo;
+
+/**
+ * El 10 del semestre se reparte en partes iguales entre cada semana de la materia y el Final
+ * (totalSemanas + 1 partes), tengan o no examen creado: lo que no se ha presentado cuenta 0.
+ * Cada semana aporta su mejor nota (Semanal o Reposición) en porcentaje.
+ */
+export function calificacionDelSemestre(
+  semanas: NotaDeSemana[],
+  final: Nota | null,
+  totalSemanas: number,
+): number {
+  const partes = totalSemanas + 1;
+  const sumaSemanas = semanas
+    .filter((s) => s.semana >= 1 && s.semana <= totalSemanas)
+    .reduce((suma, s) => suma + (s.mejor ? porcentaje(s.mejor) : 0), 0);
+  const total = sumaSemanas + (final ? porcentaje(final) : 0);
+  return Math.round((total / partes) * ESCALA_SEMESTRE * 10) / 10;
+}
 
 function mejorNota(a: Nota | null, b: Nota | null): Nota | null {
   if (!a || !b) return a ?? b;
@@ -31,6 +53,7 @@ function mejorNota(a: Nota | null, b: Nota | null): Nota | null {
 export function construirBoleta(
   examenes: Examen[],
   intentosDelAlumno: Intento[],
+  totalSemanas: number,
 ): Boleta {
   const notaDe = (examen?: Examen): Nota | null => {
     const intento =
@@ -60,5 +83,10 @@ export function construirBoleta(
       };
     });
 
-  return { semanas, final: notaDe(delTipo(TipoExamen.FINAL)) };
+  const final = notaDe(delTipo(TipoExamen.FINAL));
+  return {
+    semanas,
+    final,
+    semestre: calificacionDelSemestre(semanas, final, totalSemanas),
+  };
 }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { RELOJ } from '../../shared/domain/reloj';
+import { ZONA_HORARIA } from '../../shared/domain/fechas';
 import { SUSCRIPTOR_EVENTOS } from '../../shared/domain/eventos';
 import { casoDeUso } from '../../shared/infrastructure/caso-de-uso.provider';
 import { manejadorDeEventos } from '../../shared/infrastructure/manejador-de-eventos.provider';
@@ -39,11 +40,18 @@ import {
 } from './infrastructure/examen.schema';
 import { MongoExamenRepository } from './infrastructure/mongo-examen.repository';
 import { MongoIntentoRepository } from './infrastructure/mongo-intento.repository';
+import { MigracionesDeExamenes } from './infrastructure/migraciones.bootstrap';
 import { ExamenesController } from './presentation/examenes.controller';
 import { ExamenesDeGrupoController } from './presentation/examenes-de-grupo.controller';
 
 const PLANTILLA = [AccesoMaterias, EXAMEN_REPOSITORY, INTENTO_REPOSITORY];
-const EN_GRUPO = [AccesoGrupos, EXAMEN_REPOSITORY, INTENTO_REPOSITORY, RELOJ];
+const EN_GRUPO = [
+  AccesoGrupos,
+  EXAMEN_REPOSITORY,
+  INTENTO_REPOSITORY,
+  RELOJ,
+  ZONA_HORARIA,
+];
 
 @Module({
   imports: [
@@ -62,7 +70,7 @@ const EN_GRUPO = [AccesoGrupos, EXAMEN_REPOSITORY, INTENTO_REPOSITORY, RELOJ];
     casoDeUso(ActualizarExamen, PLANTILLA),
     casoDeUso(EliminarExamen, PLANTILLA),
     casoDeUso(ListarExamenesDeMateria, [AccesoMaterias, EXAMEN_REPOSITORY]),
-    casoDeUso(ObtenerExamenDeMateria, [AccesoMaterias, EXAMEN_REPOSITORY]),
+    casoDeUso(ObtenerExamenDeMateria, PLANTILLA),
     casoDeUso(ListarExamenesDeGrupo, EN_GRUPO),
     casoDeUso(ObtenerExamenesDeSemana, EN_GRUPO),
     casoDeUso(ObtenerExamenEnGrupo, EN_GRUPO),
@@ -85,6 +93,7 @@ const EN_GRUPO = [AccesoGrupos, EXAMEN_REPOSITORY, INTENTO_REPOSITORY, RELOJ];
       EXAMEN_REPOSITORY,
       INTENTO_REPOSITORY,
     ]),
+    MigracionesDeExamenes,
   ],
 })
 export class ExamenesModule {}

@@ -8,6 +8,7 @@ import { validarSemanaDeMateria } from '../../materias/domain/materia';
 import { AccesoMaterias } from '../../materias/application/acceso';
 import {
   Examen,
+  ordenarExamenes,
   PUNTAJE_MAXIMO_POR_DEFECTO,
   TipoExamen,
   validarDiasExtra,
@@ -95,14 +96,17 @@ export class ActualizarExamen {
     const examen = await buscarExamen(this.examenes, id);
     await this.acceso.paraEditar(examen.materiaId, actor);
     if (cambios.diasExtra !== undefined) validarDiasExtra(cambios.diasExtra);
-    if (cambios.preguntas) {
-      validarPreguntas(cambios.preguntas);
-      // Cambiar preguntas después de que alguien respondió dejaría calificaciones inconsistentes
-      if (await this.intentos.existeParaExamen(id)) {
-        throw new ConflictoError(
-          'No se pueden cambiar las preguntas: ya hay alumnos que respondieron',
-        );
-      }
+    if (cambios.preguntas) validarPreguntas(cambios.preguntas);
+
+    // Las calificaciones guardadas dependen de las preguntas y del puntaje máximo
+    const cambiaLaCalificacion =
+      cambios.preguntas !== undefined ||
+      (cambios.puntajeMaximo !== undefined &&
+        cambios.puntajeMaximo !== examen.puntajeMaximo);
+    if (cambiaLaCalificacion && (await this.intentos.existeParaExamen(id))) {
+      throw new ConflictoError(
+        'No se pueden cambiar las preguntas ni el puntaje máximo: ya hay alumnos que respondieron',
+      );
     }
     return (await this.examenes.actualizar(id, cambios)) ?? examen;
   }
@@ -144,19 +148,29 @@ export class ListarExamenesDeMateria {
 
   async ejecutar(materiaId: string, actor: Actor): Promise<Examen[]> {
     await this.acceso.paraEditar(materiaId, actor);
-    return this.examenes.listarPorMateria(materiaId);
+    return ordenarExamenes(await this.examenes.listarPorMateria(materiaId));
   }
+}
+
+export interface ExamenParaEditar {
+  examen: Examen;
+  // En cualquier grupo de la materia: si es true, preguntas y puntaje ya no cambian
+  tieneRespuestas: boolean;
 }
 
 export class ObtenerExamenDeMateria {
   constructor(
     private readonly acceso: AccesoMaterias,
     private readonly examenes: ExamenRepository,
+    private readonly intentos: IntentoRepository,
   ) {}
 
-  async ejecutar(id: string, actor: Actor): Promise<Examen> {
+  async ejecutar(id: string, actor: Actor): Promise<ExamenParaEditar> {
     const examen = await buscarExamen(this.examenes, id);
     await this.acceso.paraEditar(examen.materiaId, actor);
-    return examen;
+    return {
+      examen,
+      tieneRespuestas: await this.intentos.existeParaExamen(id),
+    };
   }
 }

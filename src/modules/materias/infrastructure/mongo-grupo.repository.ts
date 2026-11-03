@@ -52,7 +52,7 @@ export class MongoGrupoRepository implements GrupoRepository {
 
   async actualizar(id: string, cambios: CambiosGrupo): Promise<Grupo | null> {
     const doc = await this.modelo
-      .findByIdAndUpdate(id, aDocumento(cambios), { new: true })
+      .findByIdAndUpdate(id, aDocumento(cambios), { returnDocument: 'after' })
       .lean<GrupoPlano>()
       .exec();
     return doc ? aGrupo(doc) : null;

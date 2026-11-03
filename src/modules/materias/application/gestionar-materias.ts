@@ -11,6 +11,7 @@ import {
 } from '../domain/materia';
 import { DatosMateria, MateriaRepository } from '../domain/materia.repository';
 import { GrupoRepository } from '../domain/grupo.repository';
+import { UsoDeSemanas } from '../domain/uso-de-semanas';
 import { AccesoMaterias } from './acceso';
 
 export type NuevaMateria = Omit<DatosMateria, 'totalSemanas'> & {
@@ -32,11 +33,21 @@ export class CrearMateria {
 }
 
 export class ActualizarMateria {
-  constructor(private readonly materias: MateriaRepository) {}
+  constructor(
+    private readonly materias: MateriaRepository,
+    private readonly usoDeSemanas: UsoDeSemanas,
+  ) {}
 
   async ejecutar(id: string, cambios: Partial<DatosMateria>): Promise<Materia> {
     if (cambios.totalSemanas !== undefined) {
       validarTotalSemanas(cambios.totalSemanas);
+      // No se puede recortar el semestre por debajo de semanas que ya tienen contenido o exámenes
+      const ultima = await this.usoDeSemanas.ultimaSemanaOcupada(id);
+      if (cambios.totalSemanas < ultima) {
+        throw new ConflictoError(
+          `La semana ${ultima} ya tiene contenido o exámenes; la materia no puede tener menos de ${ultima} semanas`,
+        );
+      }
     }
     const materia = await this.materias.actualizar(id, cambios);
     if (!materia) {
@@ -63,8 +74,8 @@ export class EliminarMateria {
         'La materia tiene grupos; elimínalos antes de borrar la materia',
       );
     }
-    await this.eventos.publicar({ tipo: 'MateriaEliminada', materiaId: id });
     await this.materias.eliminar(id);
+    await this.eventos.publicar({ tipo: 'MateriaEliminada', materiaId: id });
   }
 }
 

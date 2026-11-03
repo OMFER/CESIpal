@@ -83,6 +83,7 @@ export class ObtenerCalificaciones {
       ...construirBoleta(
         examenes,
         intentos.filter((i) => i.alumnoId === alumno.id),
+        materia.totalSemanas,
       ),
     }));
   }

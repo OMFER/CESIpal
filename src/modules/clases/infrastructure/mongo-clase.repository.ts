@@ -49,7 +49,7 @@ export class MongoClaseRepository implements ClaseRepository {
 
   async actualizar(id: string, cambios: CambiosClase): Promise<Clase | null> {
     const doc = await this.modelo
-      .findByIdAndUpdate(id, cambios, { new: true })
+      .findByIdAndUpdate(id, cambios, { returnDocument: 'after' })
       .lean<ClasePlana>()
       .exec();
     return doc ? aClase(doc) : null;

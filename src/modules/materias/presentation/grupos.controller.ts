@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Inject,
   Delete,
   Get,
   HttpCode,
@@ -11,6 +12,7 @@ import {
 } from '@nestjs/common';
 import type { Actor } from '../../../shared/domain/actor';
 import { Rol } from '../../../shared/domain/actor';
+import { inicioDelDia, ZONA_HORARIA } from '../../../shared/domain/fechas';
 import { ParseObjectIdPipe } from '../../../shared/presentation/parse-object-id.pipe';
 import {
   JwtAuthGuard,
@@ -43,14 +45,6 @@ import { presentarGrupo } from './materia.presenter';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import * as i18n from '../../../i18n/es.json';
 
-const conFecha = <T extends { fechaInicio?: string }>({
-  fechaInicio,
-  ...resto
-}: T) =>
-  fechaInicio === undefined
-    ? resto
-    : { ...resto, fechaInicio: new Date(fechaInicio) };
-
 @ApiTags(i18n.swagger.grupos.etiqueta)
 @ApiBearerAuth()
 @Controller('grupos')
@@ -66,7 +60,18 @@ export class GruposController {
     private readonly inscribirAlumnos: InscribirAlumnos,
     private readonly darDeBajaAlumno: DarDeBajaAlumno,
     private readonly listarAlumnos: ListarAlumnosDeGrupo,
+    @Inject(ZONA_HORARIA) private readonly zonaHoraria: string,
   ) {}
+
+  // La fecha de inicio es la medianoche del día indicado en la zona de la escuela
+  private conFecha<T extends { fechaInicio?: string }>({
+    fechaInicio,
+    ...resto
+  }: T) {
+    return fechaInicio === undefined
+      ? resto
+      : { ...resto, fechaInicio: inicioDelDia(fechaInicio, this.zonaHoraria) };
+  }
 
   @ApiOperation({ summary: i18n.swagger.grupos.crear_summary })
   @Post()
@@ -74,7 +79,7 @@ export class GruposController {
   async crear(@Body() dto: CrearGrupoDto, @ActorActual() actor: Actor) {
     const grupo = await this.crearGrupo.ejecutar({
       ...dto,
-      fechaInicio: new Date(dto.fechaInicio),
+      fechaInicio: inicioDelDia(dto.fechaInicio, this.zonaHoraria),
     });
     return presentarGrupo(await this.obtenerGrupo.ejecutar(grupo.id, actor));
   }
@@ -109,7 +114,7 @@ export class GruposController {
     @Body() dto: ActualizarGrupoDto,
     @ActorActual() actor: Actor,
   ) {
-    await this.actualizarGrupo.ejecutar(id, conFecha(dto));
+    await this.actualizarGrupo.ejecutar(id, this.conFecha(dto));
     return presentarGrupo(await this.obtenerGrupo.ejecutar(id, actor));
   }
 

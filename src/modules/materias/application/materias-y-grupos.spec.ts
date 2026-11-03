@@ -6,7 +6,7 @@ import {
 import { crearEscenario, preguntasDeEjemplo } from '../../../testing/escenario';
 import { TipoExamen } from '../../examenes/domain/examen';
 import { ObtenerMisGrupos } from './consultar-grupos';
-import { EliminarMateria } from './gestionar-materias';
+import { ActualizarMateria, EliminarMateria } from './gestionar-materias';
 import { EliminarGrupo } from './gestionar-grupos';
 
 describe('AccesoGrupos', () => {
@@ -159,5 +159,58 @@ describe('Persistencia: la materia se conserva, los datos de alumnos viven en el
     expect(await e.materias.buscarPorId(e.materia.id)).toBeNull();
     expect(await e.examenes.listarPorMateria(e.materia.id)).toHaveLength(0);
     expect(await e.clases.listarPorMateria(e.materia.id)).toHaveLength(0);
+  });
+});
+
+describe('ActualizarMateria', () => {
+  it('no deja reducir las semanas por debajo de las que ya tienen contenido o exámenes', async () => {
+    const e = await crearEscenario();
+    await e.clases.crear({
+      materiaId: e.materia.id,
+      semana: 15,
+      tema: 'Tema',
+      recursos: [],
+    });
+    const usoDeSemanas = {
+      ultimaSemanaOcupada: async (materiaId: string) =>
+        Math.max(
+          0,
+          ...(await e.clases.listarPorMateria(materiaId)).map((c) => c.semana),
+          ...(await e.examenes.listarPorMateria(materiaId)).map(
+            (x) => x.semana ?? 0,
+          ),
+        ),
+    };
+    const actualizar = new ActualizarMateria(e.materias, usoDeSemanas);
+
+    await expect(
+      actualizar.ejecutar(e.materia.id, { totalSemanas: 14 }),
+    ).rejects.toThrow('no puede tener menos de 15 semanas');
+    await expect(
+      actualizar.ejecutar(e.materia.id, { totalSemanas: 15 }),
+    ).resolves.toMatchObject({ totalSemanas: 15 });
+  });
+});
+
+describe('EliminarGrupo ante una falla', () => {
+  it('si no se pudo borrar el grupo, sus calificaciones siguen intactas', async () => {
+    const e = await crearEscenario();
+    await e.intentos.crear({
+      examenId: 'e'.repeat(24),
+      grupoId: e.grupo.id,
+      alumnoId: e.actores.alumno.id,
+      respuestas: [0],
+      aciertos: 1,
+      totalPreguntas: 1,
+      calificacion: 100,
+    });
+    e.grupos.eliminar = () => Promise.reject(new Error('falla de la base'));
+
+    await expect(
+      new EliminarGrupo(e.grupos, e.inscripciones, e.eventos).ejecutar(
+        e.grupo.id,
+      ),
+    ).rejects.toThrow('falla de la base');
+    expect(e.intentos.registros).toHaveLength(1);
   });
 });

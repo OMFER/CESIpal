@@ -74,8 +74,9 @@ export class EliminarGrupo {
     if (!(await this.grupos.buscarPorId(id))) {
       throw new NoEncontradoError('Grupo no encontrado');
     }
-    await this.eventos.publicar({ tipo: 'GrupoEliminado', grupoId: id });
     await this.inscripciones.vaciarGrupo(id);
     await this.grupos.eliminar(id);
+    // Al final: si algo falla antes, las calificaciones del grupo siguen intactas
+    await this.eventos.publicar({ tipo: 'GrupoEliminado', grupoId: id });
   }
 }

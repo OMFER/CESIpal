@@ -1,3 +1,4 @@
+import { esZonaHorariaValida } from '../../domain/fechas';
 // Se ejecuta al arrancar: si falta una variable obligatoria la app no inicia, en vez de fallar después
 export function validarEntorno(
   entorno: Record<string, unknown>,
@@ -22,6 +23,12 @@ export function validarEntorno(
   const tienePassword = Boolean(entorno.ADMIN_PASSWORD);
   if (tieneCorreo !== tienePassword) {
     throw new Error('ADMIN_CORREO y ADMIN_PASSWORD deben definirse juntas');
+  }
+  const zona = entorno.ZONA_HORARIA;
+  if (typeof zona === 'string' && zona && !esZonaHorariaValida(zona)) {
+    throw new Error(
+      `ZONA_HORARIA no es una zona válida (ej. America/Mexico_City): ${zona}`,
+    );
   }
   return entorno;
 }
