@@ -309,6 +309,8 @@ describe('Flujo escolar (e2e)', () => {
           },
         ],
         final: null,
+        // 50% en una de 16 semanas + final (17 partes) → 0.5 / 17 × 10 ≈ 0.3
+        semestre: 0.3,
       },
     ]);
     const deLaMaestra = await api

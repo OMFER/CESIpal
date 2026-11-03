@@ -143,7 +143,12 @@ const presentarNota = (nota: Nota | null) =>
     puntajeMaximo: nota.puntajeMaximo,
   };
 
-export function presentarBoleta({ alumno, semanas, final }: BoletaDeAlumno) {
+export function presentarBoleta({
+  alumno,
+  semanas,
+  final,
+  semestre,
+}: BoletaDeAlumno) {
   return {
     alumno: presentarUsuarioResumen(alumno),
     semanas: semanas.map((s) => ({
@@ -153,5 +158,6 @@ export function presentarBoleta({ alumno, semanas, final }: BoletaDeAlumno) {
       mejor: presentarNota(s.mejor),
     })),
     final: presentarNota(final),
+    semestre,
   };
 }

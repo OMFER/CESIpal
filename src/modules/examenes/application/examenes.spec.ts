@@ -184,6 +184,8 @@ describe('ResponderExamen', () => {
         mejor: { calificacion: 100, puntajeMaximo: 100 },
       }),
     ]);
+    // 16 semanas + final = 17 partes; un 100% en una semana → 10 / 17 ≈ 0.6
+    expect(boleta.semestre).toBe(0.6);
   });
 
   it('el mismo alumno puede volver a presentar la materia en un grupo de otro semestre', async () => {
