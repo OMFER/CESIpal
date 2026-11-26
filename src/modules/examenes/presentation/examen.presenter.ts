@@ -1,16 +1,15 @@
 import { presentarUsuarioResumen } from '../../usuarios/presentation/usuario.presenter';
 import { Examen, Pregunta } from '../domain/examen';
 import { Intento } from '../domain/intento';
-import { Nota } from '../domain/boleta';
 import { PreguntaRevisada } from '../domain/calificar';
 import {
   ExamenEnGrupo,
-  ExamenesDeSemana,
   ResultadoDeIntento,
   ResumenExamen,
 } from '../application/examenes-de-grupo';
 import {
   BoletaDeAlumno,
+  CalificacionesDeGrupo,
   IntentoConAlumno,
 } from '../application/resultados-de-grupo';
 
@@ -49,11 +48,10 @@ export function presentarExamen(examen: Examen) {
   return {
     _id: examen.id,
     materia: examen.materiaId,
-    tipo: examen.tipo,
     semana: examen.semana,
+    numero: examen.numero,
     titulo: examen.titulo,
     descripcion: examen.descripcion,
-    puntajeMaximo: examen.puntajeMaximo,
     diasExtra: examen.diasExtra,
     preguntas: examen.preguntas.map(presentarPregunta),
   };
@@ -67,31 +65,24 @@ export function presentarResumenIntento(intento: Intento | null) {
 
 export function presentarResumenExamen({
   examen,
+  materia,
+  semanaDelGrupo,
   ventana,
   miIntento,
 }: ResumenExamen) {
   return {
     _id: examen.id,
-    tipo: examen.tipo,
+    materia: { _id: materia.id, nombre: materia.nombre },
     semana: examen.semana,
+    numero: examen.numero,
+    semanaDelGrupo,
     titulo: examen.titulo,
     descripcion: examen.descripcion,
-    puntajeMaximo: examen.puntajeMaximo,
     totalPreguntas: examen.preguntas.length,
     ventana,
     ...(miIntento !== undefined && {
       miIntento: presentarResumenIntento(miIntento),
     }),
-  };
-}
-
-export function presentarExamenesDeSemana({
-  semanal,
-  reposicion,
-}: ExamenesDeSemana) {
-  return {
-    semanal: semanal && presentarResumenExamen(semanal),
-    reposicion: reposicion && presentarResumenExamen(reposicion),
   };
 }
 
@@ -137,27 +128,30 @@ export function presentarIntento({ intento, alumno }: IntentoConAlumno) {
   };
 }
 
-const presentarNota = (nota: Nota | null) =>
-  nota && {
-    calificacion: nota.calificacion,
-    puntajeMaximo: nota.puntajeMaximo,
-  };
-
-export function presentarBoleta({
+const presentarBoleta = ({
   alumno,
-  semanas,
-  final,
-  semestre,
-}: BoletaDeAlumno) {
-  return {
-    alumno: presentarUsuarioResumen(alumno),
-    semanas: semanas.map((s) => ({
-      semana: s.semana,
-      semanal: presentarNota(s.semanal),
-      reposicion: presentarNota(s.reposicion),
-      mejor: presentarNota(s.mejor),
-    })),
-    final: presentarNota(final),
-    semestre,
-  };
-}
+  materias,
+  promedioGeneral,
+}: BoletaDeAlumno) => ({
+  alumno: presentarUsuarioResumen(alumno),
+  materias: materias.map((m) => ({
+    materia: m.materiaId,
+    notas: m.notas,
+    promedio: m.promedio,
+    aprobada: m.aprobada,
+    completa: m.completa,
+  })),
+  promedioGeneral,
+});
+
+export const presentarCalificaciones = ({
+  materias,
+  boletas,
+}: CalificacionesDeGrupo) => ({
+  materias: materias.map((m) => ({
+    _id: m.id,
+    nombre: m.nombre,
+    bloque: m.bloque,
+  })),
+  boletas: boletas.map(presentarBoleta),
+});

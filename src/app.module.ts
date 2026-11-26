@@ -7,9 +7,10 @@ import { SharedModule } from './shared/infrastructure/shared.module';
 import { validarEntorno } from './shared/infrastructure/config/validar-entorno';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
-import { MateriasModule } from './modules/materias/materias.module';
+import { PlanesModule } from './modules/planes/planes.module';
 import { ClasesModule } from './modules/clases/clases.module';
 import { ExamenesModule } from './modules/examenes/examenes.module';
+import { PublicacionModule } from './modules/publicacion/publicacion.module';
 
 @Module({
   imports: [
@@ -23,9 +24,10 @@ import { ExamenesModule } from './modules/examenes/examenes.module';
     SharedModule,
     AuthModule,
     UsuariosModule,
-    MateriasModule,
+    PlanesModule,
     ClasesModule,
     ExamenesModule,
+    PublicacionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

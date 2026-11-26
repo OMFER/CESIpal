@@ -3,10 +3,16 @@ import {
   SinPermisoError,
 } from '../../../shared/domain/errores';
 import { formatearFecha } from '../../../shared/domain/fechas';
-import { Examen, TipoExamen } from './examen';
+import { Examen } from './examen';
 
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
 const DIAS_POR_SEMANA = 7;
+
+/**
+ * Día de la semana (contando desde el lunes = 0) en que abre cada examen.
+ * Examen 1: de lunes a domingo. Examen 2: de jueves a domingo.
+ */
+export const DIA_DE_APERTURA: Record<number, number> = { 1: 0, 2: 3 };
 
 export type EstadoVentana = 'proxima' | 'abierta' | 'cerrada';
 
@@ -16,48 +22,20 @@ export interface Ventana {
   estado: EstadoVentana;
 }
 
-export interface CalendarioDelGrupo {
-  fechaInicio: Date;
-  totalSemanas: number;
-}
-
 const masDias = (fecha: Date, dias: number) =>
   new Date(fecha.getTime() + dias * MS_POR_DIA);
 
 /**
- * Cuándo puede responderse un examen en un grupo:
- * - Semanal n: durante la semana n (+ diasExtra).
- * - Reposición n: los 7 días (+ diasExtra) que siguen al cierre del Semanal n.
- * - Final: los 7 días (+ diasExtra) que siguen al fin del semestre.
- * `diasExtraDelSemanal` solo importa para la Reposición, que abre cuando cierra el Semanal.
+ * Cuándo puede responderse un examen en un grupo. `inicioDeSemana` es el lunes de la semana
+ * del grupo en la que cae la semana del examen. Los dos cierran al terminar el domingo (+ diasExtra).
  */
 export function calcularVentana(
-  examen: Pick<Examen, 'tipo' | 'semana' | 'diasExtra'>,
-  { fechaInicio, totalSemanas }: CalendarioDelGrupo,
+  examen: Pick<Examen, 'numero' | 'diasExtra'>,
+  inicioDeSemana: Date,
   ahora: Date,
-  diasExtraDelSemanal = 0,
 ): Ventana {
-  const inicioDeSemana = (n: number) =>
-    masDias(fechaInicio, (n - 1) * DIAS_POR_SEMANA);
-  const semana = examen.semana ?? totalSemanas + 1;
-
-  let abre: Date;
-  let cierra: Date;
-  switch (examen.tipo) {
-    case TipoExamen.SEMANAL:
-      abre = inicioDeSemana(semana);
-      cierra = masDias(inicioDeSemana(semana + 1), examen.diasExtra);
-      break;
-    case TipoExamen.REPOSICION:
-      abre = masDias(inicioDeSemana(semana + 1), diasExtraDelSemanal);
-      cierra = masDias(abre, DIAS_POR_SEMANA + examen.diasExtra);
-      break;
-    case TipoExamen.FINAL:
-      abre = inicioDeSemana(totalSemanas + 1);
-      cierra = masDias(abre, DIAS_POR_SEMANA + examen.diasExtra);
-      break;
-  }
-
+  const abre = masDias(inicioDeSemana, DIA_DE_APERTURA[examen.numero] ?? 0);
+  const cierra = masDias(inicioDeSemana, DIAS_POR_SEMANA + examen.diasExtra);
   const estado: EstadoVentana =
     ahora < abre ? 'proxima' : ahora < cierra ? 'abierta' : 'cerrada';
   return { abre, cierra, estado };
@@ -80,6 +58,14 @@ export function validarQuePuedeResponder(
   if (respuestas.length !== examen.preguntas.length) {
     throw new DatosInvalidosError(
       `Se esperaban ${examen.preguntas.length} respuestas y llegaron ${respuestas.length}`,
+    );
+  }
+  const fueraDeRango = respuestas.findIndex(
+    (r, i) => r >= examen.preguntas[i].opciones.length,
+  );
+  if (fueraDeRango !== -1) {
+    throw new DatosInvalidosError(
+      `La respuesta de la pregunta ${fueraDeRango + 1} no es una de sus opciones`,
     );
   }
 }

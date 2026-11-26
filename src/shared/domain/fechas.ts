@@ -69,5 +69,18 @@ export function formatearFecha(fecha: Date, zona: string): string {
   }).format(fecha);
 }
 
+const DIAS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const LUNES = 1;
+
+// Día de la semana (0 = domingo … 6 = sábado) en que cae `fecha` en la zona indicada
+export function diaDeLaSemana(fecha: Date, zona: string): number {
+  return DIAS.indexOf(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: zona,
+      weekday: 'short',
+    }).format(fecha),
+  );
+}
+
 // Zona horaria de la escuela (IANA), configurable con ZONA_HORARIA
 export const ZONA_HORARIA = Symbol('ZonaHoraria');

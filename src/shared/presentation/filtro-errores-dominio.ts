@@ -40,10 +40,15 @@ export class FiltroErroresDominio implements ExceptionFilter {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       error: 'Internal Server Error',
     };
-    host.switchToHttp().getResponse<Response>().status(status).json({
-      statusCode: status,
-      message: error.message,
-      error: nombre,
-    });
+    host
+      .switchToHttp()
+      .getResponse<Response>()
+      .status(status)
+      .json({
+        statusCode: status,
+        message: error.message,
+        error: nombre,
+        ...(error.detalles && { detalles: error.detalles }),
+      });
   }
 }

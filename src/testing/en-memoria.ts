@@ -8,25 +8,33 @@ import {
   UsuarioRepository,
 } from '../modules/usuarios/domain/usuario.repository';
 import { PasswordHasher } from '../modules/usuarios/domain/password-hasher';
-import { Materia } from '../modules/materias/domain/materia';
-import { Grupo } from '../modules/materias/domain/grupo';
+import { Bitacora, Cambio, NuevoCambio } from '../shared/domain/bitacora';
+import { Plan } from '../modules/planes/domain/plan';
+import { Materia } from '../modules/planes/domain/materia';
+import { Grupo } from '../modules/planes/domain/grupo';
 import {
+  CambiosPlan,
+  DatosPlan,
+  PlanRepository,
+} from '../modules/planes/domain/plan.repository';
+import {
+  CambiosMateria,
   DatosMateria,
   MateriaRepository,
-} from '../modules/materias/domain/materia.repository';
+} from '../modules/planes/domain/materia.repository';
 import {
   CambiosGrupo,
   DatosGrupo,
   GrupoRepository,
-} from '../modules/materias/domain/grupo.repository';
-import { InscripcionRepository } from '../modules/materias/domain/inscripcion.repository';
+} from '../modules/planes/domain/grupo.repository';
+import { InscripcionRepository } from '../modules/planes/domain/inscripcion.repository';
 import { Clase } from '../modules/clases/domain/clase';
 import {
   CambiosClase,
   ClaseRepository,
   DatosClase,
 } from '../modules/clases/domain/clase.repository';
-import { Examen, TipoExamen } from '../modules/examenes/domain/examen';
+import { Examen } from '../modules/examenes/domain/examen';
 import { Intento } from '../modules/examenes/domain/intento';
 import {
   CambiosExamen,
@@ -135,6 +143,44 @@ export class UsuariosEnMemoria implements UsuarioRepository {
   }
 }
 
+export class PlanesEnMemoria implements PlanRepository {
+  readonly tabla = new Tabla<Plan>();
+
+  crear(datos: DatosPlan): Promise<Plan> {
+    return Promise.resolve(this.tabla.insertar(datos));
+  }
+  actualizar(id: string, cambios: CambiosPlan): Promise<Plan | null> {
+    return Promise.resolve(this.tabla.modificar(id, cambios));
+  }
+  eliminar(id: string): Promise<void> {
+    this.tabla.registros.delete(id);
+    return Promise.resolve();
+  }
+  buscarPorId(id: string): Promise<Plan | null> {
+    return Promise.resolve(this.tabla.registros.get(id) ?? null);
+  }
+  buscarPorIds(ids: string[]): Promise<Plan[]> {
+    return Promise.resolve(this.tabla.porIds(ids));
+  }
+  listar(): Promise<Plan[]> {
+    return Promise.resolve(this.tabla.todos());
+  }
+  ultimaVersion(nombre: string): Promise<number> {
+    return Promise.resolve(
+      Math.max(
+        0,
+        ...this.tabla
+          .todos()
+          .filter((p) => p.nombre === nombre)
+          .map((p) => p.version),
+      ),
+    );
+  }
+}
+
+const porBloque = (a: Materia, b: Materia) =>
+  a.bloque - b.bloque || a.nombre.localeCompare(b.nombre);
+
 export class MateriasEnMemoria implements MateriaRepository {
   readonly tabla = new Tabla<Materia>();
 
@@ -143,9 +189,13 @@ export class MateriasEnMemoria implements MateriaRepository {
   }
   actualizar(
     id: string,
-    cambios: Partial<DatosMateria>,
+    { maestroId, ...cambios }: CambiosMateria,
   ): Promise<Materia | null> {
-    return Promise.resolve(this.tabla.modificar(id, cambios));
+    const materia = this.tabla.modificar(id, {
+      ...cambios,
+      ...(maestroId !== undefined && { maestroId: maestroId ?? undefined }),
+    });
+    return Promise.resolve(materia);
   }
   eliminar(id: string): Promise<void> {
     this.tabla.registros.delete(id);
@@ -154,11 +204,21 @@ export class MateriasEnMemoria implements MateriaRepository {
   buscarPorId(id: string): Promise<Materia | null> {
     return Promise.resolve(this.tabla.registros.get(id) ?? null);
   }
-  buscarPorIds(ids: string[]): Promise<Materia[]> {
-    return Promise.resolve(this.tabla.porIds(ids));
+  listarPorPlan(planId: string): Promise<Materia[]> {
+    return Promise.resolve(
+      this.tabla
+        .todos()
+        .filter((m) => m.planId === planId)
+        .sort(porBloque),
+    );
   }
-  listar(): Promise<Materia[]> {
-    return Promise.resolve(this.tabla.todos());
+  listarPorMaestro(maestroId: string): Promise<Materia[]> {
+    return Promise.resolve(
+      this.tabla
+        .todos()
+        .filter((m) => m.maestroId === maestroId)
+        .sort(porBloque),
+    );
   }
 }
 
@@ -184,25 +244,13 @@ export class GruposEnMemoria implements GrupoRepository {
   listar(): Promise<Grupo[]> {
     return Promise.resolve(this.tabla.todos());
   }
-  listarPorMaestro(maestroId: string): Promise<Grupo[]> {
+  listarPorPlanes(planIds: string[]): Promise<Grupo[]> {
     return Promise.resolve(
-      this.tabla.todos().filter((g) => g.maestroId === maestroId),
+      this.tabla.todos().filter((g) => planIds.includes(g.planId)),
     );
   }
-  existeDeMateria(materiaId: string): Promise<boolean> {
-    return Promise.resolve(
-      this.tabla.todos().some((g) => g.materiaId === materiaId),
-    );
-  }
-  maestroImparteMateria(
-    maestroId: string,
-    materiaId: string,
-  ): Promise<boolean> {
-    return Promise.resolve(
-      this.tabla
-        .todos()
-        .some((g) => g.maestroId === maestroId && g.materiaId === materiaId),
-    );
+  existeDePlan(planId: string): Promise<boolean> {
+    return Promise.resolve(this.tabla.todos().some((g) => g.planId === planId));
   }
 }
 
@@ -278,8 +326,11 @@ export class ClasesEnMemoria implements ClaseRepository {
     );
   }
   listarPorMateria(materiaId: string): Promise<Clase[]> {
+    return this.listarPorMaterias([materiaId]);
+  }
+  listarPorMaterias(materiaIds: string[]): Promise<Clase[]> {
     return Promise.resolve(
-      this.tabla.todos().filter((c) => c.materiaId === materiaId),
+      this.tabla.todos().filter((c) => materiaIds.includes(c.materiaId)),
     );
   }
   eliminarDeMateria(materiaId: string): Promise<void> {
@@ -309,21 +360,26 @@ export class ExamenesEnMemoria implements ExamenRepository {
   }
   buscarEnMateria(
     materiaId: string,
-    tipo: TipoExamen,
-    semana?: number,
+    semana: number,
+    numero: number,
   ): Promise<Examen | null> {
     return Promise.resolve(
       this.tabla
         .todos()
         .find(
           (e) =>
-            e.materiaId === materiaId && e.tipo === tipo && e.semana === semana,
+            e.materiaId === materiaId &&
+            e.semana === semana &&
+            e.numero === numero,
         ) ?? null,
     );
   }
   listarPorMateria(materiaId: string): Promise<Examen[]> {
+    return this.listarPorMaterias([materiaId]);
+  }
+  listarPorMaterias(materiaIds: string[]): Promise<Examen[]> {
     return Promise.resolve(
-      this.tabla.todos().filter((e) => e.materiaId === materiaId),
+      this.tabla.todos().filter((e) => materiaIds.includes(e.materiaId)),
     );
   }
   eliminarDeMateria(materiaId: string): Promise<void> {
@@ -345,20 +401,6 @@ export class IntentosEnMemoria implements IntentoRepository {
     this.registros.push(intento);
     return Promise.resolve(intento);
   }
-  buscar(
-    examenId: string,
-    grupoId: string,
-    alumnoId: string,
-  ): Promise<Intento | null> {
-    return Promise.resolve(
-      this.registros.find(
-        (i) =>
-          i.examenId === examenId &&
-          i.grupoId === grupoId &&
-          i.alumnoId === alumnoId,
-      ) ?? null,
-    );
-  }
   listarDeAlumno(grupoId: string, alumnoId: string): Promise<Intento[]> {
     return Promise.resolve(
       this.registros.filter(
@@ -376,15 +418,35 @@ export class IntentosEnMemoria implements IntentoRepository {
   existeParaExamen(examenId: string): Promise<boolean> {
     return Promise.resolve(this.registros.some((i) => i.examenId === examenId));
   }
-  eliminarPorExamen(examenId: string): Promise<void> {
-    return this.quitar((i) => i.examenId === examenId);
-  }
   eliminarDeGrupo(grupoId: string): Promise<void> {
     return this.quitar((i) => i.grupoId === grupoId);
   }
   private quitar(condicion: (i: Intento) => boolean): Promise<void> {
     const quedan = this.registros.filter((i) => !condicion(i));
     this.registros.splice(0, this.registros.length, ...quedan);
+    return Promise.resolve();
+  }
+}
+
+export class BitacoraEnMemoria implements Bitacora {
+  readonly cambios: Cambio[] = [];
+
+  constructor(private readonly reloj: Reloj) {}
+
+  registrar(cambio: NuevoCambio): Promise<void> {
+    this.cambios.unshift({
+      ...cambio,
+      id: nuevoId(),
+      fecha: this.reloj.ahora(),
+    });
+    return Promise.resolve();
+  }
+  listarDePlan(planId: string): Promise<Cambio[]> {
+    return Promise.resolve(this.cambios.filter((c) => c.planId === planId));
+  }
+  eliminarDePlan(planId: string): Promise<void> {
+    const quedan = this.cambios.filter((c) => c.planId !== planId);
+    this.cambios.splice(0, this.cambios.length, ...quedan);
     return Promise.resolve();
   }
 }

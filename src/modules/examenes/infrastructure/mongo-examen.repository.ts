@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { aObjectId } from '../../../shared/infrastructure/mongo/object-id';
-import { Examen, TipoExamen } from '../domain/examen';
+import {
+  aObjectId,
+  aObjectIds,
+} from '../../../shared/infrastructure/mongo/object-id';
+import { Examen } from '../domain/examen';
 import {
   CambiosExamen,
   DatosExamen,
@@ -20,11 +23,10 @@ function aExamen(doc: ExamenPlano): Examen {
   return {
     id: doc._id.toString(),
     materiaId: doc.materia.toString(),
-    tipo: doc.tipo,
     semana: doc.semana,
+    numero: doc.numero,
     titulo: doc.titulo,
     descripcion: doc.descripcion,
-    puntajeMaximo: doc.puntajeMaximo,
     diasExtra: doc.diasExtra ?? 0,
     preguntas: doc.preguntas.map(
       ({ _id, enunciado, opciones, respuestaCorrecta }) => ({
@@ -90,15 +92,11 @@ export class MongoExamenRepository implements ExamenRepository {
 
   async buscarEnMateria(
     materiaId: string,
-    tipo: TipoExamen,
-    semana?: number,
+    semana: number,
+    numero: number,
   ): Promise<Examen | null> {
     const doc = await this.modelo
-      .findOne({
-        materia: aObjectId(materiaId),
-        tipo,
-        semana: semana ?? { $exists: false },
-      })
+      .findOne({ materia: aObjectId(materiaId), semana, numero })
       .lean<ExamenPlano>()
       .exec();
     return doc ? aExamen(doc) : null;
@@ -107,7 +105,16 @@ export class MongoExamenRepository implements ExamenRepository {
   async listarPorMateria(materiaId: string): Promise<Examen[]> {
     const docs = await this.modelo
       .find({ materia: aObjectId(materiaId) })
-      .sort({ semana: 1, tipo: -1 })
+      .sort({ semana: 1, numero: 1 })
+      .lean<ExamenPlano[]>()
+      .exec();
+    return docs.map(aExamen);
+  }
+
+  async listarPorMaterias(materiaIds: string[]): Promise<Examen[]> {
+    const docs = await this.modelo
+      .find({ materia: { $in: aObjectIds(materiaIds) } })
+      .sort({ semana: 1, numero: 1 })
       .lean<ExamenPlano[]>()
       .exec();
     return docs.map(aExamen);

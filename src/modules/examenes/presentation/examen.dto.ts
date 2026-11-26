@@ -3,24 +3,29 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsEnum,
   IsInt,
   IsMongoId,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
+  EXAMENES_POR_SEMANA,
+  SEMANAS_POR_MATERIA,
+} from '../../planes/domain/plan';
+import {
   MAXIMO_DIAS_EXTRA,
   MAXIMO_OPCIONES,
   MINIMO_OPCIONES,
-  TipoExamen,
 } from '../domain/examen';
+
+// Los exámenes de una materia caben de sobra; coincide con el límite del cuerpo de la petición
+const MAXIMO_CSV = 100_000;
 
 export class PreguntaDto {
   @IsString()
@@ -48,16 +53,17 @@ export class CrearExamenDto {
   @IsNotEmpty()
   materiaId!: string;
 
-  @IsEnum(TipoExamen, {
-    message: 'El tipo debe ser Semanal, Reposicion o Final',
-  })
-  tipo!: TipoExamen;
-
-  // Obligatoria en Semanal y Reposicion; no se envía en el Final
-  @IsOptional()
+  // Semana de la materia
   @IsInt()
   @Min(1)
-  semana?: number;
+  @Max(SEMANAS_POR_MATERIA)
+  semana!: number;
+
+  // Examen 1 (abre el lunes) o 2 (abre el jueves)
+  @IsInt()
+  @Min(1)
+  @Max(EXAMENES_POR_SEMANA)
+  numero!: number;
 
   @IsString()
   @IsNotEmpty()
@@ -66,11 +72,6 @@ export class CrearExamenDto {
   @IsOptional()
   @IsString()
   descripcion?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  puntajeMaximo?: number;
 
   // Días de prórroga sobre la ventana normal del examen
   @IsOptional()
@@ -86,10 +87,18 @@ export class CrearExamenDto {
   preguntas!: PreguntaDto[];
 }
 
-// El tipo y la semana identifican al examen: no se cambian
+// La materia, la semana y el número identifican al examen: no se cambian
 export class ActualizarExamenDto extends PartialType(
-  OmitType(CrearExamenDto, ['materiaId', 'tipo', 'semana'] as const),
+  OmitType(CrearExamenDto, ['materiaId', 'semana', 'numero'] as const),
 ) {}
+
+export class ImportarExamenesDto {
+  // Contenido del CSV exportado de la plantilla de Google Sheets
+  @IsString()
+  @IsNotEmpty({ message: 'El archivo está vacío' })
+  @MaxLength(MAXIMO_CSV, { message: 'El archivo es demasiado grande' })
+  csv!: string;
+}
 
 export class ResponderExamenDto {
   // Índice de la opción elegida por pregunta, en el orden en que se recibieron

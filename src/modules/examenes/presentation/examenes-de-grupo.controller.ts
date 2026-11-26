@@ -28,9 +28,8 @@ import {
 } from '../application/resultados-de-grupo';
 import { ResponderExamenDto } from './examen.dto';
 import {
-  presentarBoleta,
+  presentarCalificaciones,
   presentarExamenEnGrupo,
-  presentarExamenesDeSemana,
   presentarIntento,
   presentarResultadoDeIntento,
   presentarResumenExamen,
@@ -65,15 +64,16 @@ export class ExamenesDeGrupoController {
   }
 
   @ApiOperation({ summary: i18n.swagger.examenes_grupo.semana_summary })
-  @Get('examenes/semana/:semana')
+  @Get('materias/:materiaId/semanas/:semana/examenes')
   async deSemana(
     @Param('grupoId', ParseObjectIdPipe) grupoId: string,
+    @Param('materiaId', ParseObjectIdPipe) materiaId: string,
     @Param('semana', ParseIntPipe) semana: number,
     @ActorActual() actor: Actor,
   ) {
-    return presentarExamenesDeSemana(
-      await this.obtenerDeSemana.ejecutar(grupoId, semana, actor),
-    );
+    return (
+      await this.obtenerDeSemana.ejecutar(grupoId, materiaId, semana, actor)
+    ).map(presentarResumenExamen);
   }
 
   @ApiOperation({ summary: i18n.swagger.examenes_grupo.obtener_summary })
@@ -125,8 +125,8 @@ export class ExamenesDeGrupoController {
     @Param('grupoId', ParseObjectIdPipe) grupoId: string,
     @ActorActual() actor: Actor,
   ) {
-    return (await this.obtenerCalificaciones.ejecutar(grupoId, actor)).map(
-      presentarBoleta,
+    return presentarCalificaciones(
+      await this.obtenerCalificaciones.ejecutar(grupoId, actor),
     );
   }
 }

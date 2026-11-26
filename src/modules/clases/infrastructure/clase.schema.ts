@@ -4,7 +4,6 @@ import { TipoRecurso } from '../domain/clase';
 
 @Schema({ _id: false })
 export class LinksModelo {
-  @Prop() enVivo?: string;
   @Prop() grabacion?: string;
   @Prop() descGrabacion?: string;
   @Prop() presentacion?: string;
@@ -41,9 +40,6 @@ export class ClaseModelo {
 
   @Prop({ type: [SchemaFactory.createForClass(RecursoModelo)], default: [] })
   recursos!: RecursoModelo[];
-
-  @Prop({ type: Date })
-  fechaEnVivo?: Date;
 
   @Prop({ type: SchemaFactory.createForClass(LinksModelo) })
   links?: LinksModelo;

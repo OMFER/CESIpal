@@ -64,22 +64,6 @@ export class MongoIntentoRepository implements IntentoRepository {
     }
   }
 
-  async buscar(
-    examenId: string,
-    grupoId: string,
-    alumnoId: string,
-  ): Promise<Intento | null> {
-    const doc = await this.modelo
-      .findOne({
-        examen: aObjectId(examenId),
-        grupo: aObjectId(grupoId),
-        alumno: aObjectId(alumnoId),
-      })
-      .lean<IntentoPlano>()
-      .exec();
-    return doc ? aIntento(doc) : null;
-  }
-
   async listarDeAlumno(grupoId: string, alumnoId: string): Promise<Intento[]> {
     const docs = await this.modelo
       .find({ grupo: aObjectId(grupoId), alumno: aObjectId(alumnoId) })
@@ -102,10 +86,6 @@ export class MongoIntentoRepository implements IntentoRepository {
 
   async existeParaExamen(examenId: string): Promise<boolean> {
     return (await this.modelo.exists({ examen: aObjectId(examenId) })) !== null;
-  }
-
-  async eliminarPorExamen(examenId: string): Promise<void> {
-    await this.modelo.deleteMany({ examen: aObjectId(examenId) });
   }
 
   async eliminarDeGrupo(grupoId: string): Promise<void> {

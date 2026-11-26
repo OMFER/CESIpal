@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
-import { PUNTAJE_MAXIMO_POR_DEFECTO, TipoExamen } from '../domain/examen';
 
 @Schema()
 export class PreguntaModelo {
@@ -19,20 +18,18 @@ export class ExamenModelo {
   @Prop({ type: Types.ObjectId, ref: 'MateriaModelo', required: true })
   materia!: Types.ObjectId;
 
-  @Prop({ type: String, required: true, enum: TipoExamen })
-  tipo!: TipoExamen;
+  // Semana de la materia (1 o 2) y número de examen dentro de ella (1 o 2)
+  @Prop({ required: true, min: 1 })
+  semana!: number;
 
-  @Prop({ min: 1 })
-  semana?: number;
+  @Prop({ required: true, min: 1 })
+  numero!: number;
 
   @Prop({ required: true, trim: true })
   titulo!: string;
 
   @Prop({ trim: true })
   descripcion?: string;
-
-  @Prop({ required: true, default: PUNTAJE_MAXIMO_POR_DEFECTO })
-  puntajeMaximo!: number;
 
   @Prop({ required: true, default: 0, min: 0 })
   diasExtra!: number;
@@ -42,8 +39,8 @@ export class ExamenModelo {
 }
 
 export const ExamenSchema = SchemaFactory.createForClass(ExamenModelo);
-// Un examen de cada tipo por semana, y un solo Final (sin semana) por materia
-ExamenSchema.index({ materia: 1, tipo: 1, semana: 1 }, { unique: true });
+// Un examen 1 y un examen 2 por semana de la materia
+ExamenSchema.index({ materia: 1, semana: 1, numero: 1 }, { unique: true });
 
 @Schema({ collection: 'intentos', timestamps: true })
 export class IntentoModelo {
@@ -70,5 +67,6 @@ export class IntentoModelo {
 }
 
 export const IntentoSchema = SchemaFactory.createForClass(IntentoModelo);
+// Cada alumno responde una sola vez cada examen en su grupo, aunque mande dos veces la respuesta
 IntentoSchema.index({ examen: 1, grupo: 1, alumno: 1 }, { unique: true });
 IntentoSchema.index({ grupo: 1, alumno: 1 });

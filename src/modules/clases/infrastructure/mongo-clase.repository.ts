@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { aObjectId } from '../../../shared/infrastructure/mongo/object-id';
+import {
+  aObjectId,
+  aObjectIds,
+} from '../../../shared/infrastructure/mongo/object-id';
 import { Clase } from '../domain/clase';
 import {
   CambiosClase,
@@ -28,8 +31,11 @@ function aClase(doc: ClasePlana): Clase {
       url,
       descripcion,
     })),
-    fechaEnVivo: doc.fechaEnVivo,
-    links: doc.links,
+    links: doc.links && {
+      grabacion: doc.links.grabacion,
+      descGrabacion: doc.links.descGrabacion,
+      presentacion: doc.links.presentacion,
+    },
   };
 }
 
@@ -78,6 +84,15 @@ export class MongoClaseRepository implements ClaseRepository {
   async listarPorMateria(materiaId: string): Promise<Clase[]> {
     const docs = await this.modelo
       .find({ materia: aObjectId(materiaId) })
+      .sort({ semana: 1 })
+      .lean<ClasePlana[]>()
+      .exec();
+    return docs.map(aClase);
+  }
+
+  async listarPorMaterias(materiaIds: string[]): Promise<Clase[]> {
+    const docs = await this.modelo
+      .find({ materia: { $in: aObjectIds(materiaIds) } })
       .sort({ semana: 1 })
       .lean<ClasePlana[]>()
       .exec();

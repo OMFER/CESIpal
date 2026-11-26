@@ -3,7 +3,7 @@
     "global": {
       "titulo": "API Plataforma Escolar",
       "descripcion": "Documentación de los endpoints para la plataforma educativa. Inicia sesión en POST /auth/login y usa el token en el botón Authorize.",
-      "version": "2.0"
+      "version": "3.0"
     },
     "auth": {
       "etiqueta": "Autenticación",
@@ -18,50 +18,63 @@
       "obtener_summary": "Obtener un usuario (solo admin)",
       "actualizar_summary": "Actualizar un usuario (solo admin)"
     },
+    "planes": {
+      "etiqueta": "Planes de estudio",
+      "crear_summary": "Crear un plan de estudios en borrador, versión 1 (solo admin)",
+      "listar_summary": "Listar los planes y sus versiones (solo admin)",
+      "obtener_summary": "Obtener una versión del plan con sus materias (solo admin)",
+      "actualizar_summary": "Corregir la descripción del plan (solo admin)",
+      "eliminar_summary": "Eliminar una versión del plan que ningún grupo usa, con su contenido y exámenes (solo admin)",
+      "bitacora_summary": "Historial de cambios del plan: quién cambió qué y cómo estaba antes (solo admin)",
+      "pendientes_summary": "Revisar qué le falta al plan para poder publicarse (solo admin)",
+      "publicar_summary": "Publicar el plan: congela su estructura y permite abrir grupos con él (solo admin)",
+      "version_summary": "Copiar esta versión a un borrador nuevo con el siguiente número de versión (solo admin)"
+    },
     "materias": {
       "etiqueta": "Materias",
-      "crear_summary": "Crear una materia permanente (solo admin)",
-      "listar_summary": "Listar todas las materias (solo admin)",
-      "obtener_summary": "Obtener una materia",
-      "actualizar_summary": "Actualizar una materia (solo admin)",
-      "eliminar_summary": "Eliminar una materia sin grupos, con su contenido y exámenes (solo admin)"
+      "crear_summary": "Agregar una materia a un plan en borrador (solo admin)",
+      "mias_summary": "Materias asignadas al maestro de la sesión",
+      "obtener_summary": "Obtener una materia con su versión del plan",
+      "actualizar_summary": "Corregir una materia; cambiar de bloque solo en borrador (solo admin)",
+      "eliminar_summary": "Quitar una materia de un plan en borrador, con su contenido y exámenes (solo admin)"
     },
     "grupos": {
       "etiqueta": "Grupos",
-      "crear_summary": "Abrir un grupo de una materia para un semestre (solo admin)",
+      "crear_summary": "Abrir un grupo con una versión publicada del plan; empieza en lunes (solo admin)",
       "listar_summary": "Listar todos los grupos (solo admin)",
-      "mios_summary": "Obtener los grupos del usuario actual con su calendario semanal",
-      "obtener_summary": "Obtener un grupo con su calendario semanal",
-      "actualizar_summary": "Actualizar un grupo (solo admin)",
-      "eliminar_summary": "Eliminar un grupo con sus inscripciones y calificaciones; la materia se conserva (solo admin)",
+      "mios_summary": "Obtener los grupos del usuario actual con su calendario y sus materias",
+      "obtener_summary": "Obtener un grupo con su calendario y sus materias",
+      "actualizar_summary": "Actualizar un grupo; la fecha de inicio solo antes de que empiece (solo admin)",
+      "eliminar_summary": "Eliminar un grupo con sus inscripciones y calificaciones; el plan se conserva (solo admin)",
       "alumnos_summary": "Listar los alumnos inscritos en el grupo",
       "inscribir_summary": "Inscribir alumnos en el grupo (solo admin)",
       "baja_summary": "Dar de baja a un alumno del grupo (solo admin)"
     },
     "clases": {
       "etiqueta": "Contenido semanal",
-      "crear_summary": "Publicar el contenido de una semana de la materia",
+      "crear_summary": "Crear el contenido de una semana (1 o 2) de la materia en un plan en borrador",
       "listar_summary": "Listar el contenido de todas las semanas de la materia",
       "semana_summary": "Obtener el contenido de una semana (infografía)",
-      "actualizar_summary": "Actualizar el contenido de una semana",
-      "eliminar_summary": "Eliminar el contenido de una semana"
+      "actualizar_summary": "Corregir el contenido de una semana (textos, recursos, ligas)",
+      "eliminar_summary": "Eliminar el contenido de una semana de un plan en borrador"
     },
     "examenes": {
       "etiqueta": "Exámenes de la materia",
-      "crear_summary": "Crear un examen Semanal, de Reposición o Final",
+      "crear_summary": "Crear el examen 1 o 2 de una semana de la materia (plan en borrador)",
+      "importar_summary": "Importar los exámenes de la materia desde el CSV de la plantilla (plan en borrador)",
       "listar_summary": "Listar los exámenes de la materia con sus respuestas",
       "obtener_summary": "Obtener un examen con sus respuestas",
-      "actualizar_summary": "Actualizar un examen (las preguntas no cambian si ya hay respuestas)",
-      "eliminar_summary": "Eliminar un examen y sus resultados"
+      "actualizar_summary": "Corregir un examen (si ya hay respuestas, solo la redacción de las preguntas)",
+      "eliminar_summary": "Eliminar un examen de un plan en borrador"
     },
     "examenes_grupo": {
       "etiqueta": "Exámenes en el grupo",
       "listar_summary": "Listar los exámenes del grupo con su ventana de apertura y el intento del alumno",
-      "semana_summary": "Obtener el examen semanal y la reposición de una semana",
+      "semana_summary": "Obtener los dos exámenes de una semana de una materia",
       "obtener_summary": "Obtener un examen para responderlo o revisarlo",
       "responder_summary": "Responder un examen (una sola vez); devuelve la calificación y la revisión",
       "intentos_summary": "Listar los resultados del examen en el grupo",
-      "calificaciones_summary": "Calificaciones por semana (la mejor entre semanal y reposición) y final"
+      "calificaciones_summary": "Calificaciones por materia (promedio de sus 4 exámenes; aprueba con 6)"
     }
   }
 }

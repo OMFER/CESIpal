@@ -5,13 +5,10 @@ import {
   SinPermisoError,
 } from '../../../shared/domain/errores';
 import { Reloj } from '../../../shared/domain/reloj';
-import { AccesoGrupos, ContextoGrupo } from '../../materias/application/acceso';
-import {
-  Examen,
-  ordenarExamenes,
-  puedeVerRespuestas,
-  TipoExamen,
-} from '../domain/examen';
+import { Materia } from '../../planes/domain/materia';
+import { inicioDeSemana, semanaDelGrupo } from '../../planes/domain/calendario';
+import { AccesoGrupos, ContextoGrupo } from '../../planes/application/acceso';
+import { Examen, ordenarExamenes, puedeVerRespuestas } from '../domain/examen';
 import { Intento } from '../domain/intento';
 import {
   calcularVentana,
@@ -31,12 +28,15 @@ import {
 
 export interface ResumenExamen {
   examen: Examen;
+  materia: Materia;
+  // Semana del grupo en la que se presenta
+  semanaDelGrupo: number;
   ventana: Ventana;
   // Solo para alumnos: null si todavía no responde
   miIntento?: Intento | null;
 }
 
-// Qué preguntas recibe el actor: con respuestas (maestro), sin ellas (alumno con examen abierto),
+// Qué preguntas recibe el actor: con respuestas (maestro, admin), sin ellas (alumno con examen abierto),
 // ninguna (alumno fuera de la ventana) o la revisión de lo que contestó
 export type PreguntasVisibles =
   | { modo: 'conRespuestas' }
@@ -48,9 +48,9 @@ export interface ExamenEnGrupo extends ResumenExamen {
   preguntas: PreguntasVisibles;
 }
 
-// Lo que necesita cualquier consulta: el grupo, su materia y los exámenes de esa materia
+// Lo que necesita cualquier consulta: el grupo, su plan y los exámenes de todas sus materias
 interface Consulta extends ContextoGrupo {
-  examenesDeMateria: Examen[];
+  examenesDelPlan: Examen[];
 }
 
 // Lo común a las consultas de exámenes dentro de un grupo
@@ -65,26 +65,10 @@ abstract class ConsultaEnGrupo {
 
   protected async preparar(grupoId: string, actor: Actor): Promise<Consulta> {
     const contexto = await this.acceso.paraLeer(grupoId, actor);
-    const examenesDeMateria = await this.examenes.listarPorMateria(
-      contexto.materia.id,
+    const examenesDelPlan = await this.examenes.listarPorMaterias(
+      contexto.materias.map((m) => m.id),
     );
-    return { ...contexto, examenesDeMateria };
-  }
-
-  protected ventanaDe(examen: Examen, consulta: Consulta): Ventana {
-    const { grupo, materia, examenesDeMateria } = consulta;
-    const semanal =
-      examen.tipo === TipoExamen.REPOSICION
-        ? examenesDeMateria.find(
-            (e) => e.tipo === TipoExamen.SEMANAL && e.semana === examen.semana,
-          )
-        : undefined;
-    return calcularVentana(
-      examen,
-      { fechaInicio: grupo.fechaInicio, totalSemanas: materia.totalSemanas },
-      this.reloj.ahora(),
-      semanal?.diasExtra ?? 0,
-    );
+    return { ...contexto, examenesDelPlan };
   }
 
   protected async resumir(
@@ -96,60 +80,75 @@ abstract class ConsultaEnGrupo {
       actor.rol === Rol.ALUMNO
         ? await this.intentos.listarDeAlumno(consulta.grupo.id, actor.id)
         : [];
-    return examenes.map((examen) => ({
-      examen,
-      ventana: this.ventanaDe(examen, consulta),
-      ...(actor.rol === Rol.ALUMNO && {
-        miIntento: intentos.find((i) => i.examenId === examen.id) ?? null,
-      }),
-    }));
+    const ahora = this.reloj.ahora();
+    return examenes.flatMap((examen) => {
+      const materia = consulta.materias.find((m) => m.id === examen.materiaId);
+      if (!materia) return [];
+      const semana = semanaDelGrupo(materia.bloque, examen.semana);
+      return [
+        {
+          examen,
+          materia,
+          semanaDelGrupo: semana,
+          ventana: calcularVentana(
+            examen,
+            inicioDeSemana(consulta.grupo.fechaInicio, semana),
+            ahora,
+          ),
+          ...(actor.rol === Rol.ALUMNO && {
+            miIntento: intentos.find((i) => i.examenId === examen.id) ?? null,
+          }),
+        },
+      ];
+    });
   }
 
-  // Los exámenes de la materia ya están cargados: no hace falta volver a buscarlo
+  // Los exámenes del plan ya están cargados: no hace falta volver a buscarlo
   protected examenDelGrupo(examenId: string, consulta: Consulta): Examen {
-    const examen = consulta.examenesDeMateria.find((e) => e.id === examenId);
+    const examen = consulta.examenesDelPlan.find((e) => e.id === examenId);
     if (!examen) {
       throw new NoEncontradoError(
-        'Examen no encontrado en la materia de este grupo',
+        'Examen no encontrado en el plan de este grupo',
       );
     }
     return examen;
   }
 }
 
+// Todos los exámenes del grupo en orden de calendario
 export class ListarExamenesDeGrupo extends ConsultaEnGrupo {
   async ejecutar(grupoId: string, actor: Actor): Promise<ResumenExamen[]> {
     const consulta = await this.preparar(grupoId, actor);
-    return this.resumir(
-      ordenarExamenes(consulta.examenesDeMateria),
+    const resumenes = await this.resumir(
+      ordenarExamenes(consulta.examenesDelPlan),
       consulta,
       actor,
+    );
+    return resumenes.sort(
+      (a, b) =>
+        a.semanaDelGrupo - b.semanaDelGrupo ||
+        a.materia.nombre.localeCompare(b.materia.nombre) ||
+        a.examen.numero - b.examen.numero,
     );
   }
 }
 
-export interface ExamenesDeSemana {
-  semanal: ResumenExamen | null;
-  reposicion: ResumenExamen | null;
-}
-
+// Los dos exámenes de una semana de una materia
 export class ObtenerExamenesDeSemana extends ConsultaEnGrupo {
   async ejecutar(
     grupoId: string,
+    materiaId: string,
     semana: number,
     actor: Actor,
-  ): Promise<ExamenesDeSemana> {
+  ): Promise<ResumenExamen[]> {
     const consulta = await this.preparar(grupoId, actor);
-    const deLaSemana = consulta.examenesDeMateria.filter(
-      (e) => e.semana === semana,
+    if (!consulta.materias.some((m) => m.id === materiaId)) {
+      throw new NoEncontradoError('La materia no pertenece al plan del grupo');
+    }
+    const deLaSemana = consulta.examenesDelPlan.filter(
+      (e) => e.materiaId === materiaId && e.semana === semana,
     );
-    const resumenes = await this.resumir(deLaSemana, consulta, actor);
-    const delTipo = (tipo: TipoExamen) =>
-      resumenes.find((r) => r.examen.tipo === tipo) ?? null;
-    return {
-      semanal: delTipo(TipoExamen.SEMANAL),
-      reposicion: delTipo(TipoExamen.REPOSICION),
-    };
+    return this.resumir(ordenarExamenes(deLaSemana), consulta, actor);
   }
 }
 
@@ -204,18 +203,22 @@ export class ResponderExamen extends ConsultaEnGrupo {
     }
     const consulta = await this.preparar(grupoId, actor);
     const examen = this.examenDelGrupo(examenId, consulta);
-    const ventana = this.ventanaDe(examen, consulta);
+    const [{ ventana, miIntento }] = await this.resumir(
+      [examen],
+      consulta,
+      actor,
+    );
     validarQuePuedeResponder(examen, ventana, respuestas, this.zonaHoraria);
-
-    if (await this.intentos.buscar(examenId, grupoId, actor.id)) {
+    if (miIntento) {
       throw new ConflictoError('Ya respondiste este examen');
     }
+
     const intento = await this.intentos.crear({
       examenId,
       grupoId,
       alumnoId: actor.id,
       respuestas,
-      ...calificarExamen(examen.preguntas, respuestas, examen.puntajeMaximo),
+      ...calificarExamen(examen.preguntas, respuestas),
     });
     // El examen sigue abierto para el resto del grupo: todavía sin la respuesta correcta
     return {

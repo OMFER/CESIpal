@@ -1,7 +1,6 @@
 import { OmitType, PartialType } from '@nestjs/swagger';
 import {
   IsArray,
-  IsDateString,
   IsEnum,
   IsInt,
   IsMongoId,
@@ -9,17 +8,15 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TipoRecurso } from '../domain/clase';
+import { SEMANAS_POR_MATERIA } from '../../planes/domain/plan';
 
 export class LinksDto {
-  @IsOptional()
-  @IsUrl({}, { message: 'El enlace en vivo debe ser una URL válida' })
-  enVivo?: string;
-
   @IsOptional()
   @IsUrl({}, { message: 'El enlace de la grabación debe ser una URL válida' })
   grabacion?: string;
@@ -59,8 +56,10 @@ export class CrearClaseDto {
   @IsNotEmpty()
   materiaId!: string;
 
+  // Semana de la materia (1 o 2)
   @IsInt()
   @Min(1)
+  @Max(SEMANAS_POR_MATERIA)
   semana!: number;
 
   @IsString()
@@ -76,10 +75,6 @@ export class CrearClaseDto {
   @ValidateNested({ each: true })
   @Type(() => RecursoDto)
   recursos?: RecursoDto[];
-
-  @IsOptional()
-  @IsDateString()
-  fechaEnVivo?: string;
 
   @IsOptional()
   @ValidateNested()

@@ -1,29 +1,30 @@
-import { calificarExamen } from './calificar';
+import { calificarExamen, revisarRespuestas } from './calificar';
 
-describe('calificarExamen', () => {
+describe('calificar un examen', () => {
   const preguntas = [
-    { respuestaCorrecta: 0 },
-    { respuestaCorrecta: 2 },
-    { respuestaCorrecta: 1 },
+    { enunciado: 'a', opciones: ['x', 'y'], respuestaCorrecta: 0 },
+    { enunciado: 'b', opciones: ['x', 'y'], respuestaCorrecta: 1 },
+    { enunciado: 'c', opciones: ['x', 'y', 'z'], respuestaCorrecta: 2 },
   ];
 
-  it('da el puntaje máximo con todas correctas', () => {
-    expect(calificarExamen(preguntas, [0, 2, 1], 100)).toEqual({
+  it('califica sobre 10 con dos decimales', () => {
+    expect(calificarExamen(preguntas, [0, 1, 2])).toEqual({
       aciertos: 3,
       totalPreguntas: 3,
-      calificacion: 100,
+      calificacion: 10,
     });
+    expect(calificarExamen(preguntas, [0, 0, 0]).calificacion).toBe(3.33);
   });
 
-  it('es proporcional a los aciertos y redondea a 2 decimales', () => {
-    expect(calificarExamen(preguntas, [0, 1, 1], 10)).toEqual({
-      aciertos: 2,
-      totalPreguntas: 3,
-      calificacion: 6.67,
-    });
+  it('un examen sin preguntas vale 0', () => {
+    expect(calificarExamen([], []).calificacion).toBe(0);
   });
 
-  it('da 0 sin aciertos', () => {
-    expect(calificarExamen(preguntas, [1, 1, 0], 100).calificacion).toBe(0);
+  it('la revisión solo trae la respuesta correcta si se permite', () => {
+    const sin = revisarRespuestas(preguntas, [1, 1, 2], false);
+    expect(sin.map((p) => p.acierto)).toEqual([false, true, true]);
+    expect(sin[0]).not.toHaveProperty('respuestaCorrecta');
+    const con = revisarRespuestas(preguntas, [1, 1, 2], true);
+    expect(con[0].respuestaCorrecta).toBe(0);
   });
 });

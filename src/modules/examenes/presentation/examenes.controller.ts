@@ -22,15 +22,21 @@ import {
   ActualizarExamen,
   CrearExamen,
   EliminarExamen,
+  ImportarExamenes,
   ListarExamenesDeMateria,
   ObtenerExamenDeMateria,
 } from '../application/gestionar-examenes';
-import { ActualizarExamenDto, CrearExamenDto } from './examen.dto';
+import { leerTablaCsv } from '../../../shared/presentation/csv';
+import {
+  ActualizarExamenDto,
+  CrearExamenDto,
+  ImportarExamenesDto,
+} from './examen.dto';
 import { presentarExamen } from './examen.presenter';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import * as i18n from '../../../i18n/es.json';
 
-// Exámenes como plantilla de la materia: solo para quien la edita
+// Exámenes como plantilla de la materia: solo para quien la edita (su maestro o el admin)
 @ApiTags(i18n.swagger.examenes.etiqueta)
 @ApiBearerAuth()
 @Controller('examenes')
@@ -43,6 +49,7 @@ export class ExamenesController {
     private readonly eliminarExamen: EliminarExamen,
     private readonly listarExamenes: ListarExamenesDeMateria,
     private readonly obtenerExamen: ObtenerExamenDeMateria,
+    private readonly importarExamenes: ImportarExamenes,
   ) {}
 
   @ApiOperation({ summary: i18n.swagger.examenes.crear_summary })
@@ -60,6 +67,22 @@ export class ExamenesController {
     return (await this.listarExamenes.ejecutar(materiaId, actor)).map(
       presentarExamen,
     );
+  }
+
+  @ApiOperation({ summary: i18n.swagger.examenes.importar_summary })
+  @Post('materia/:materiaId/importar')
+  async importar(
+    @Param('materiaId', ParseObjectIdPipe) materiaId: string,
+    @Body() dto: ImportarExamenesDto,
+    @ActorActual() actor: Actor,
+  ) {
+    return (
+      await this.importarExamenes.ejecutar(
+        materiaId,
+        leerTablaCsv(dto.csv),
+        actor,
+      )
+    ).map(presentarExamen);
   }
 
   @ApiOperation({ summary: i18n.swagger.examenes.obtener_summary })

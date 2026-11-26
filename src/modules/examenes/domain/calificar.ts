@@ -1,5 +1,8 @@
 import { Pregunta } from './examen';
 
+// Cada examen se califica sobre 10
+export const ESCALA = 10;
+
 export interface ResultadoCalificacion {
   aciertos: number;
   totalPreguntas: number;
@@ -9,7 +12,6 @@ export interface ResultadoCalificacion {
 export function calificarExamen(
   preguntas: Pick<Pregunta, 'respuestaCorrecta'>[],
   respuestas: number[],
-  puntajeMaximo: number,
 ): ResultadoCalificacion {
   const totalPreguntas = preguntas.length;
   const aciertos = preguntas.filter(
@@ -18,7 +20,7 @@ export function calificarExamen(
   const calificacion =
     totalPreguntas === 0
       ? 0
-      : Math.round((aciertos / totalPreguntas) * puntajeMaximo * 100) / 100;
+      : Math.round((aciertos / totalPreguntas) * ESCALA * 100) / 100;
   return { aciertos, totalPreguntas, calificacion };
 }
 

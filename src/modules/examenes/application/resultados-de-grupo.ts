@@ -1,7 +1,8 @@
 import { Actor, Rol } from '../../../shared/domain/actor';
 import { NoEncontradoError } from '../../../shared/domain/errores';
-import { AccesoGrupos } from '../../materias/application/acceso';
-import { InscripcionRepository } from '../../materias/domain/inscripcion.repository';
+import { AccesoGrupos } from '../../planes/application/acceso';
+import { InscripcionRepository } from '../../planes/domain/inscripcion.repository';
+import { Materia } from '../../planes/domain/materia';
 import { Usuario } from '../../usuarios/domain/usuario';
 import { UsuarioRepository } from '../../usuarios/domain/usuario.repository';
 import { Boleta, construirBoleta } from '../domain/boleta';
@@ -17,7 +18,7 @@ export interface IntentoConAlumno {
   alumno: Usuario | null;
 }
 
-// El maestro ve los resultados de todo el grupo; un alumno, solo el suyo
+// El maestro y el admin ven los resultados de todo el grupo; un alumno, solo el suyo
 export class ListarIntentosDeGrupo {
   constructor(
     private readonly acceso: AccesoGrupos,
@@ -31,11 +32,11 @@ export class ListarIntentosDeGrupo {
     examenId: string,
     actor: Actor,
   ): Promise<IntentoConAlumno[]> {
-    const { materia } = await this.acceso.paraLeer(grupoId, actor);
+    const { materias } = await this.acceso.paraLeer(grupoId, actor);
     const examen = await buscarExamen(this.examenes, examenId);
-    if (examen.materiaId !== materia.id) {
+    if (!materias.some((m) => m.id === examen.materiaId)) {
       throw new NoEncontradoError(
-        'El examen no pertenece a la materia de este grupo',
+        'El examen no pertenece al plan de este grupo',
       );
     }
 
@@ -58,6 +59,12 @@ export interface BoletaDeAlumno extends Boleta {
   alumno: Usuario;
 }
 
+export interface CalificacionesDeGrupo {
+  // En el orden en que se cursan
+  materias: Materia[];
+  boletas: BoletaDeAlumno[];
+}
+
 export class ObtenerCalificaciones {
   constructor(
     private readonly acceso: AccesoGrupos,
@@ -67,10 +74,14 @@ export class ObtenerCalificaciones {
     private readonly usuarios: UsuarioRepository,
   ) {}
 
-  async ejecutar(grupoId: string, actor: Actor): Promise<BoletaDeAlumno[]> {
-    const { materia } = await this.acceso.paraLeer(grupoId, actor);
+  async ejecutar(
+    grupoId: string,
+    actor: Actor,
+  ): Promise<CalificacionesDeGrupo> {
+    const { materias } = await this.acceso.paraLeer(grupoId, actor);
+    const materiaIds = materias.map((m) => m.id);
     const [examenes, intentos] = await Promise.all([
-      this.examenes.listarPorMateria(materia.id),
+      this.examenes.listarPorMaterias(materiaIds),
       this.intentos.listarDeGrupo(grupoId),
     ]);
 
@@ -78,13 +89,16 @@ export class ObtenerCalificaciones {
       actor.rol === Rol.ALUMNO
         ? await this.usuarios.buscarPorIds([actor.id])
         : await this.inscripciones.alumnosDeGrupo(grupoId);
-    return alumnos.map((alumno) => ({
-      alumno,
-      ...construirBoleta(
-        examenes,
-        intentos.filter((i) => i.alumnoId === alumno.id),
-        materia.totalSemanas,
-      ),
-    }));
+    return {
+      materias,
+      boletas: alumnos.map((alumno) => ({
+        alumno,
+        ...construirBoleta(
+          materiaIds,
+          examenes,
+          intentos.filter((i) => i.alumnoId === alumno.id),
+        ),
+      })),
+    };
   }
 }

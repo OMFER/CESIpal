@@ -1,86 +1,81 @@
-import { TipoExamen } from './examen';
-import { calcularVentana, validarQuePuedeResponder } from './ventana';
+import {
+  calcularVentana,
+  puedeRevelarRespuestas,
+  validarQuePuedeResponder,
+} from './ventana';
 
-describe('calcularVentana', () => {
-  // Semana 1 = 3 al 9 de agosto; 16 semanas → el semestre termina el 23 de noviembre
-  const calendario = {
-    fechaInicio: new Date('2026-08-03T00:00:00Z'),
-    totalSemanas: 16,
-  };
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
+describe('ventana de un examen', () => {
+  // Lunes de la semana del examen
+  const lunes = new Date('2026-08-10T00:00:00Z');
+  const el = (fecha: string) => new Date(`${fecha}T12:00:00Z`);
 
-  it('el Semanal abre al inicio de su semana y cierra al terminarla', () => {
-    const v = calcularVentana(
-      { tipo: TipoExamen.SEMANAL, semana: 2, diasExtra: 0 },
-      calendario,
-      new Date('2026-08-12T00:00:00Z'),
+  it('el examen 1 abre el lunes y cierra al terminar el domingo', () => {
+    const ventana = calcularVentana(
+      { numero: 1, diasExtra: 0 },
+      lunes,
+      el('2026-08-10'),
     );
-    expect([iso(v.abre), iso(v.cierra), v.estado]).toEqual([
-      '2026-08-10',
-      '2026-08-17',
-      'abierta',
-    ]);
+    expect(ventana.abre.toISOString()).toBe('2026-08-10T00:00:00.000Z');
+    expect(ventana.cierra.toISOString()).toBe('2026-08-17T00:00:00.000Z');
+    expect(ventana.estado).toBe('abierta');
+  });
+
+  it('el examen 2 abre el jueves y cierra a la vez que el 1', () => {
+    const examen = { numero: 2, diasExtra: 0 };
+    expect(calcularVentana(examen, lunes, el('2026-08-12')).estado).toBe(
+      'proxima',
+    );
+    const ventana = calcularVentana(examen, lunes, el('2026-08-13'));
+    expect(ventana.abre.toISOString()).toBe('2026-08-13T00:00:00.000Z');
+    expect(ventana.cierra.toISOString()).toBe('2026-08-17T00:00:00.000Z');
+    expect(ventana.estado).toBe('abierta');
   });
 
   it('los días extra alargan el cierre', () => {
-    const v = calcularVentana(
-      { tipo: TipoExamen.SEMANAL, semana: 2, diasExtra: 3 },
-      calendario,
-      new Date('2026-08-19T00:00:00Z'),
+    const ventana = calcularVentana(
+      { numero: 1, diasExtra: 2 },
+      lunes,
+      el('2026-08-18'),
     );
-    expect([iso(v.cierra), v.estado]).toEqual(['2026-08-20', 'abierta']);
+    expect(ventana.cierra.toISOString()).toBe('2026-08-19T00:00:00.000Z');
+    expect(ventana.estado).toBe('abierta');
   });
 
-  it('la Reposición abre cuando cierra el Semanal (con su prórroga) y dura una semana', () => {
-    const v = calcularVentana(
-      { tipo: TipoExamen.REPOSICION, semana: 2, diasExtra: 0 },
-      calendario,
-      new Date('2026-08-12T00:00:00Z'),
-      3,
+  it('las respuestas correctas se revelan solo cuando ya cerró', () => {
+    const examen = { numero: 1, diasExtra: 0 };
+    expect(
+      puedeRevelarRespuestas(calcularVentana(examen, lunes, el('2026-08-16'))),
+    ).toBe(false);
+    expect(
+      puedeRevelarRespuestas(calcularVentana(examen, lunes, el('2026-08-17'))),
+    ).toBe(true);
+  });
+
+  it('rechaza respuestas fuera de la ventana, incompletas o que no son opciones', () => {
+    const examen = {
+      preguntas: [
+        { enunciado: 'a', opciones: ['x', 'y'], respuestaCorrecta: 0 },
+      ],
+    };
+    const abierta = calcularVentana(
+      { numero: 1, diasExtra: 0 },
+      lunes,
+      el('2026-08-11'),
     );
-    expect([iso(v.abre), iso(v.cierra), v.estado]).toEqual([
-      '2026-08-20',
-      '2026-08-27',
-      'proxima',
-    ]);
-  });
-
-  it('el Final abre al terminar el semestre', () => {
-    const v = calcularVentana(
-      { tipo: TipoExamen.FINAL, diasExtra: 0 },
-      calendario,
-      new Date('2026-12-01T00:00:00Z'),
+    const proxima = calcularVentana(
+      { numero: 2, diasExtra: 0 },
+      lunes,
+      el('2026-08-11'),
     );
-    expect([iso(v.abre), iso(v.cierra), v.estado]).toEqual([
-      '2026-11-23',
-      '2026-11-30',
-      'cerrada',
-    ]);
-  });
-});
-
-describe('validarQuePuedeResponder', () => {
-  const examen = {
-    preguntas: [{ enunciado: '?', opciones: ['a', 'b'], respuestaCorrecta: 0 }],
-  };
-  const ventana = (estado: 'proxima' | 'abierta' | 'cerrada') => ({
-    abre: new Date('2026-08-10T00:00:00Z'),
-    cierra: new Date('2026-08-17T00:00:00Z'),
-    estado,
-  });
-
-  it('dice cuándo abre si todavía no abre', () => {
-    expect(() =>
-      validarQuePuedeResponder(examen, ventana('proxima'), [0]),
-    ).toThrow('El examen abre el 10 de agosto de 2026');
-  });
-
-  it('rechaza si ya cerró o si faltan respuestas', () => {
-    expect(() =>
-      validarQuePuedeResponder(examen, ventana('cerrada'), [0]),
-    ).toThrow('ya cerró');
-    expect(() =>
-      validarQuePuedeResponder(examen, ventana('abierta'), []),
-    ).toThrow('Se esperaban 1 respuestas');
+    expect(() => validarQuePuedeResponder(examen, proxima, [0])).toThrow(
+      'El examen abre el 13 de agosto de 2026',
+    );
+    expect(() => validarQuePuedeResponder(examen, abierta, [])).toThrow(
+      'Se esperaban 1 respuestas',
+    );
+    expect(() => validarQuePuedeResponder(examen, abierta, [5])).toThrow(
+      'no es una de sus opciones',
+    );
+    expect(() => validarQuePuedeResponder(examen, abierta, [1])).not.toThrow();
   });
 });

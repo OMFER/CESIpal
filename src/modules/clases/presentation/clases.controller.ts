@@ -31,14 +31,6 @@ import { presentarClase } from './clase.presenter';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import * as i18n from '../../../i18n/es.json';
 
-const aFecha = <T extends { fechaEnVivo?: string }>({
-  fechaEnVivo,
-  ...resto
-}: T) =>
-  fechaEnVivo === undefined
-    ? resto
-    : { ...resto, fechaEnVivo: new Date(fechaEnVivo) };
-
 @ApiTags(i18n.swagger.clases.etiqueta)
 @ApiBearerAuth()
 @Controller('clases')
@@ -56,7 +48,7 @@ export class ClasesController {
   @Post()
   @Roles(Rol.MAESTRO, Rol.ADMIN)
   async crear(@Body() dto: CrearClaseDto, @ActorActual() actor: Actor) {
-    return presentarClase(await this.crearClase.ejecutar(aFecha(dto), actor));
+    return presentarClase(await this.crearClase.ejecutar(dto, actor));
   }
 
   @ApiOperation({ summary: i18n.swagger.clases.listar_summary })
@@ -90,9 +82,7 @@ export class ClasesController {
     @Body() dto: ActualizarClaseDto,
     @ActorActual() actor: Actor,
   ) {
-    return presentarClase(
-      await this.actualizarClase.ejecutar(id, aFecha(dto), actor),
-    );
+    return presentarClase(await this.actualizarClase.ejecutar(id, dto, actor));
   }
 
   @ApiOperation({ summary: i18n.swagger.clases.eliminar_summary })

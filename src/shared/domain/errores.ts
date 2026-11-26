@@ -1,6 +1,10 @@
 // Errores de negocio. No conocen HTTP: la capa de presentación los traduce a códigos de estado.
 export abstract class ErrorDeDominio extends Error {
-  constructor(mensaje: string) {
+  // Lista opcional de problemas concretos (p. ej. un error por fila al importar)
+  constructor(
+    mensaje: string,
+    readonly detalles?: string[],
+  ) {
     super(mensaje);
     this.name = new.target.name;
   }

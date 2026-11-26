@@ -8,7 +8,6 @@ export function presentarClase(clase: Clase) {
     tema: clase.tema,
     introduccion: clase.introduccion,
     recursos: clase.recursos,
-    fechaEnVivo: clase.fechaEnVivo,
     links: clase.links,
   };
 }

@@ -3,11 +3,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { RELOJ } from '../../shared/domain/reloj';
 import { ZONA_HORARIA } from '../../shared/domain/fechas';
 import { SUSCRIPTOR_EVENTOS } from '../../shared/domain/eventos';
+import { BITACORA } from '../../shared/domain/bitacora';
 import { casoDeUso } from '../../shared/infrastructure/caso-de-uso.provider';
 import { manejadorDeEventos } from '../../shared/infrastructure/manejador-de-eventos.provider';
-import { MateriasModule } from '../materias/materias.module';
-import { AccesoGrupos, AccesoMaterias } from '../materias/application/acceso';
-import { INSCRIPCION_REPOSITORY } from '../materias/domain/inscripcion.repository';
+import { PlanesModule } from '../planes/planes.module';
+import { AccesoGrupos, AccesoMaterias } from '../planes/application/acceso';
+import { INSCRIPCION_REPOSITORY } from '../planes/domain/inscripcion.repository';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { USUARIO_REPOSITORY } from '../usuarios/domain/usuario.repository';
 import {
@@ -18,6 +19,7 @@ import {
   ActualizarExamen,
   CrearExamen,
   EliminarExamen,
+  ImportarExamenes,
   ListarExamenesDeMateria,
   ObtenerExamenDeMateria,
 } from './application/gestionar-examenes';
@@ -40,11 +42,10 @@ import {
 } from './infrastructure/examen.schema';
 import { MongoExamenRepository } from './infrastructure/mongo-examen.repository';
 import { MongoIntentoRepository } from './infrastructure/mongo-intento.repository';
-import { MigracionesDeExamenes } from './infrastructure/migraciones.bootstrap';
 import { ExamenesController } from './presentation/examenes.controller';
 import { ExamenesDeGrupoController } from './presentation/examenes-de-grupo.controller';
 
-const PLANTILLA = [AccesoMaterias, EXAMEN_REPOSITORY, INTENTO_REPOSITORY];
+const EDICION = [AccesoMaterias, EXAMEN_REPOSITORY, BITACORA];
 const EN_GRUPO = [
   AccesoGrupos,
   EXAMEN_REPOSITORY,
@@ -59,18 +60,28 @@ const EN_GRUPO = [
       { name: ExamenModelo.name, schema: ExamenSchema },
       { name: IntentoModelo.name, schema: IntentoSchema },
     ]),
-    MateriasModule,
+    PlanesModule,
     UsuariosModule,
   ],
   controllers: [ExamenesController, ExamenesDeGrupoController],
   providers: [
     { provide: EXAMEN_REPOSITORY, useClass: MongoExamenRepository },
     { provide: INTENTO_REPOSITORY, useClass: MongoIntentoRepository },
-    casoDeUso(CrearExamen, [AccesoMaterias, EXAMEN_REPOSITORY]),
-    casoDeUso(ActualizarExamen, PLANTILLA),
-    casoDeUso(EliminarExamen, PLANTILLA),
+    casoDeUso(CrearExamen, EDICION),
+    casoDeUso(ActualizarExamen, [
+      AccesoMaterias,
+      EXAMEN_REPOSITORY,
+      INTENTO_REPOSITORY,
+      BITACORA,
+    ]),
+    casoDeUso(EliminarExamen, EDICION),
+    casoDeUso(ImportarExamenes, EDICION),
     casoDeUso(ListarExamenesDeMateria, [AccesoMaterias, EXAMEN_REPOSITORY]),
-    casoDeUso(ObtenerExamenDeMateria, PLANTILLA),
+    casoDeUso(ObtenerExamenDeMateria, [
+      AccesoMaterias,
+      EXAMEN_REPOSITORY,
+      INTENTO_REPOSITORY,
+    ]),
     casoDeUso(ListarExamenesDeGrupo, EN_GRUPO),
     casoDeUso(ObtenerExamenesDeSemana, EN_GRUPO),
     casoDeUso(ObtenerExamenEnGrupo, EN_GRUPO),
@@ -93,7 +104,8 @@ const EN_GRUPO = [
       EXAMEN_REPOSITORY,
       INTENTO_REPOSITORY,
     ]),
-    MigracionesDeExamenes,
   ],
+  // La publicación revisa que cada semana tenga sus dos exámenes y los copia a las versiones nuevas
+  exports: [EXAMEN_REPOSITORY],
 })
 export class ExamenesModule {}

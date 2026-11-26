@@ -16,6 +16,7 @@ export class LimpiezaDeExamenes {
   ) {}
 
   registrar(): void {
+    // Una materia solo se borra en un plan sin grupos: sus exámenes no tienen intentos
     this.eventos.suscribir('MateriaEliminada', ({ materiaId }) =>
       this.examenes.eliminarDeMateria(materiaId),
     );
